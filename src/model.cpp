@@ -1,5 +1,6 @@
+#include "./utils.cpp"
 template <typename T>
-struct lms_cell
+struct ConstParam
 {
   // Topographic factors
   T label;
@@ -32,19 +33,23 @@ struct lms_cell
   T bw;
   T manning;
   T Ep;
-  /* state factors:
-    cur        — current soil moisture
-  Ea         — actual evapotranspiration
-  runoff     — surface runoff
-  lat_mm     — lateral flow
-  per_mm     — percolation
-  Qg         — groundwater flow
-  QPrevT     — flow at previous time step
-  QPrevX     — flow at previous spatial step
-  Qcurr      — current flow
-  waterLevel — water level
-  temp       — intermediate computation variable
-  */
+};
+/* state factors:
+  cur        — current soil moisture
+Ea         — actual evapotranspiration
+runoff     — surface runoff
+lat_mm     — lateral flow
+per_mm     — percolation
+Qg         — groundwater flow
+QPrevT     — flow at previous time step
+QPrevX     — flow at previous spatial step
+Qcurr      — current flow
+waterLevel — water level
+temp       — intermediate computation variable
+*/
+template <typename T>
+struct StateParam
+{
   T cur;
   T Ea;
   T runoff;
@@ -57,14 +62,38 @@ struct lms_cell
   T temp;
 };
 
-struct model
+template <typename T>
+class ConstRaster
 {
-  using std::vector;
-
-public:
-  Task<T> simulate() {};
-  T get_result() {};
+  ConstRaster(const ConstRaster &raster) = delete;
+  ConstRaster &operator=(const ConstRaster &raster) = delete;
 
 private:
-  vector<lms_cell> raster;
+  std::vector<ConstParam> raster_;
+  size_t weith_;
+  size_t heigh_;
+};
+
+template <typename T>
+class StateRaster
+{
+private:
+  std::vector<StateParam> raster_;
+  size_t weith_;
+  size_t heigh_;
+};
+template <typename T>
+struct model
+{
+
+public:
+  Task<T> Simulate() {};
+  // Particle Swarm Optimization
+  Task<T> PSO() {};
+  bool BuildOrder() {};
+
+private:
+  StateRaster<T> state_param_;
+  ConstRaster<T> const_param_;
+  std::vector<int> iter_order_;
 };
