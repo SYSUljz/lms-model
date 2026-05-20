@@ -1,4 +1,8 @@
 #include "./utils.cpp"
+struct StationAttribute
+{
+  size_t station_id;
+};
 template <typename T>
 struct ConstParam
 {
@@ -7,7 +11,7 @@ struct ConstParam
   T d8;
   T slop;
   /* soil factors
-    sat      — saturated water content
+  sat      — saturated water content
   fc       — field capacity
   wl       — wilting coefficient
   zs       — soil layer thickness
@@ -19,7 +23,7 @@ struct ConstParam
   bs       — channel slope
   bw       — channel width
   manning  — Manning's roughness coefficient
-  // Ep       — potential evapotranspiration (optional) */
+  Ep       — potential evapotranspiration (optional) */
   T sat;
   T fc;
   T wl;
@@ -87,13 +91,47 @@ struct model
 {
 
 public:
-  Task<T> Simulate() {};
+  Task<T> SimulateOneStep(StateRaster<T> &temp_state_param_, const ConstRaster<T> &const_param_, std::vector<T> station_rain)
+  {
+
+    for (auto &item : iter_order_)
+    {
+      ProcessCell(item, &temp_state_param_, &const_param_);
+    }
+  };
+  Simulate()
+  {
+    StateRaster<T> temp_state_param_ = state_param_;
+    for (auto &item : rainfall_)
+    {
+      SimulateOneStep();
+    }
+  };
   // Particle Swarm Optimization
   Task<T> PSO() {};
   bool BuildOrder() {};
+  bool BuildRain() {};
+  auto ProcessCell(int idx, StateRaster<T> &state_param, const ConstRaster<T> &const_param_)
+  {
+    // copy state_param raster here
+    auto local_state_param = state_param;
+    auto target_idx = GetTargetIdx(idx);
+    FlowGeneration(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_);
+    FlowConfluence(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_);
+  };
+  int GetTargetIdx(int this_idx) {};
+  auto FlowGeneration(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_) {
+
+  };
+  auto FlowConfluence(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_) {};
 
 private:
   StateRaster<T> state_param_;
-  ConstRaster<T> const_param_;
+  const ConstRaster<T> const_param_;
   std::vector<int> iter_order_;
+  std::vector<int> station_id_;
+  // rainfall_[time][station]
+  std::vector<std::vector<T>> rainfall_;
+  int time_interval_s_;
+  int rainfall_data_length_;
 };
