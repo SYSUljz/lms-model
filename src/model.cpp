@@ -1,4 +1,11 @@
 #include "./utils.cpp"
+enum class Label
+{
+  Soil,
+  Channel,
+  Reservoir
+
+};
 struct StationAttribute
 {
   size_t station_id;
@@ -7,7 +14,7 @@ template <typename T>
 struct ConstParam
 {
   // Topographic factors
-  T label;
+  Label label;
   T d8;
   T slop;
   /* soil factors
@@ -87,16 +94,17 @@ private:
   size_t heigh_;
 };
 template <typename T>
-struct model
+class model
 {
 
 public:
   Task<T> SimulateOneStep(StateRaster<T> &temp_state_param_, const ConstRaster<T> &const_param_, std::vector<T> station_rain)
   {
 
-    for (auto &item : iter_order_)
+    for (auto &[idx, item] : std::views::enumerate(iter_order_))
     {
-      ProcessCell(item, &temp_state_param_, &const_param_);
+      int target_idx = target_idx_[idx];
+      ProcessCell(&temp_state_param_.raster_[idx], &const_param_.raster_[idx], &temp_state_param_.raster_[target_idx], time_interval_s_);
     }
   };
   Simulate()
@@ -110,15 +118,9 @@ public:
   // Particle Swarm Optimization
   Task<T> PSO() {};
   bool BuildOrder() {};
+  bool BuildTargetOrder() {};
   bool BuildRain() {};
-  auto ProcessCell(int idx, StateRaster<T> &state_param, const ConstRaster<T> &const_param_)
-  {
-    // copy state_param raster here
-    auto local_state_param = state_param;
-    auto target_idx = GetTargetIdx(idx);
-    FlowGeneration(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_);
-    FlowConfluence(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_);
-  };
+
   int GetTargetIdx(int this_idx) {};
   auto FlowGeneration(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_) {
 
@@ -129,9 +131,20 @@ private:
   StateRaster<T> state_param_;
   const ConstRaster<T> const_param_;
   std::vector<int> iter_order_;
+  std::vector<int> target_idx_;
   std::vector<int> station_id_;
   // rainfall_[time][station]
   std::vector<std::vector<T>> rainfall_;
   int time_interval_s_;
   int rainfall_data_length_;
+};
+
+template <typename T>
+auto ProcessCell(StateParam<T> &loc_state, ConstParam<T> &const_param, StateParam<T> &target_state, int time_interval)
+{
+  // copy state_param raster here
+  auto local_state_param = state_param;
+  auto target_idx = GetTargetIdx(idx);
+  FlowGeneration(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_, time_interval);
+  FlowConfluence(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_, time_interval);
 };
