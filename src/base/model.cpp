@@ -1,4 +1,5 @@
 #include "./utils.cpp"
+#include "base/direct.h"
 enum class Label
 {
   Soil,
@@ -6,6 +7,7 @@ enum class Label
   Reservoir
 
 };
+
 struct StationAttribute
 {
   size_t station_id;
@@ -15,7 +17,7 @@ struct ConstParam
 {
   // Topographic factors
   Label label;
-  T d8;
+  Direct8 d8;
   T slop;
   /* soil factors
   sat      — saturated water content
@@ -30,7 +32,7 @@ struct ConstParam
   bs       — channel slope
   bw       — channel width
   manning  — Manning's roughness coefficient
-  Ep       — potential evapotranspiration (optional) */
+  ep       — potential evapotranspiration (optional) */
   T sat;
   T fc;
   T wl;
@@ -43,10 +45,10 @@ struct ConstParam
   T bs;
   T bw;
   T manning;
-  T Ep;
+  T ep;
 };
 /* state factors:
-  cur        — current soil moisture
+  soil_moisture        — current soil moisture
 Ea         — actual evapotranspiration
 runoff     — surface runoff
 lat_mm     — lateral flow
@@ -61,7 +63,7 @@ temp       — intermediate computation variable
 template <typename T>
 struct StateParam
 {
-  T cur;
+  T soil_moisture;
   T Ea;
   T runoff;
   T lat_mm;
@@ -71,6 +73,7 @@ struct StateParam
   T Qcurr;
   T waterLevel;
   T temp;
+  T lateral_in_flow;
 };
 
 template <typename T>
@@ -83,6 +86,8 @@ private:
   std::vector<ConstParam> raster_;
   size_t weith_;
   size_t heigh_;
+  // raster resolution (m)
+  size_t cell_size_;
 };
 
 template <typename T>
