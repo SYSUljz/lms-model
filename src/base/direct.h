@@ -10,7 +10,8 @@ enum class Direct8
   UpRight
 };
 
-constexpr double GetDirectFactor(Direct8 direct)
+template <typename T>
+constexpr T GetDirectFactor(Direct8 direct)
 {
   switch (direct)
   {
@@ -18,8 +19,8 @@ constexpr double GetDirectFactor(Direct8 direct)
   case Direct8::DownLeft:
   case Direct8::UpLeft:
   case Direct8::UpRight:
-    return 1.4142135623730951;
+    return static_cast<T>(1.4142135623730951);
   default:
-    return 1.0;
+    return T{1};
   }
 }

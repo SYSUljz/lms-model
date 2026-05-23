@@ -1,5 +1,6 @@
 #include "./utils.cpp"
 #include "base/direct.h"
+
 enum class Label
 {
   Soil,
@@ -12,6 +13,25 @@ struct StationAttribute
 {
   size_t station_id;
 };
+
+struct ModelMeta
+{
+  size_t weith_;
+  size_t heigh_;
+  // raster resolution (m)
+  size_t cell_size_;
+  int time_interval_s_;
+};
+
+template <typename T>
+struct GlobalParam
+{
+  T soil_alpha_;
+  // groundwater recession coefficient
+  T baseflow_coff;
+  T v;
+};
+
 template <typename T>
 struct ConstParam
 {
@@ -53,13 +73,14 @@ Ea         — actual evapotranspiration
 runoff     — surface runoff
 lat_mm     — lateral flow
 per_mm     — percolation
-Qg         — groundwater flow
+groundwater_q         — groundwater flow
 QPrevT     — flow at previous time step
 QPrevX     — flow at previous spatial step
 Qcurr      — current flow
 waterLevel — water level
 temp       — intermediate computation variable
 */
+
 template <typename T>
 struct StateParam
 {
@@ -68,7 +89,7 @@ struct StateParam
   T runoff;
   T lat_mm;
   T per_mm;
-  T Qg;
+  T groundwater_q;
   T QPrevT;
   T Qcurr;
   T waterLevel;
@@ -84,10 +105,6 @@ class ConstRaster
 
 private:
   std::vector<ConstParam> raster_;
-  size_t weith_;
-  size_t heigh_;
-  // raster resolution (m)
-  size_t cell_size_;
 };
 
 template <typename T>
@@ -95,8 +112,6 @@ class StateRaster
 {
 private:
   std::vector<StateParam> raster_;
-  size_t weith_;
-  size_t heigh_;
 };
 template <typename T>
 class model
@@ -127,20 +142,18 @@ public:
   bool BuildRain() {};
 
   int GetTargetIdx(int this_idx) {};
-  auto FlowGeneration(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_) {
-
-  };
-  auto FlowConfluence(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_) {};
 
 private:
   StateRaster<T> state_param_;
   const ConstRaster<T> const_param_;
+  const ModelMeta<T> model_meta_;
+  GlobalParam<T> global_param_;
   std::vector<int> iter_order_;
   std::vector<int> target_idx_;
   std::vector<int> station_id_;
   // rainfall_[time][station]
   std::vector<std::vector<T>> rainfall_;
-  int time_interval_s_;
+
   int rainfall_data_length_;
 };
 
