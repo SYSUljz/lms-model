@@ -2,7 +2,7 @@
 #include "utils.cpp"
 #include <cmath>
 template <typename T>
-void FlowGeneration(StateParam<T> &state_param_loc, ConstParam<T> &const_param_loc, StateParam<T> &target_state, T rainfall, const ModelMeta &meta_data, const GlobalParam<T> &global_param)
+void FlowGeneration(StateParam<T> &state_param_loc, const ConstParam<T> &const_param_loc, StateParam<T> &target_state, T rainfall, const ModelMeta &meta_data, const GlobalParam<T> &global_param)
 {
   // calculate flow generate in soil cell
   if (const_param_loc.label == Label::Soil)
@@ -24,15 +24,15 @@ void FlowGeneration(StateParam<T> &state_param_loc, ConstParam<T> &const_param_l
     // calculate evaporation
     if (soil_moisture > fc)
     {
-      state_param_loc.Ea = ep * v;
+      state_param_loc.actual_evaporate = ep * v;
     }
     else if (soil_moisture > const_param_loc.wl)
     {
-      state_param_loc.Ea = (1 - v) * Ep * (curr - const_param_loc.wl) / (fc - const_param_loc.wl);
+      state_param_loc.actual_evaporate = (1 - v) * Ep * (curr - const_param_loc.wl) / (fc - const_param_loc.wl);
     }
     else
     {
-      state_param_loc.Ea = 0;
+      state_param_loc.actual_evaporate = 0;
     }
     // calculate produce runoff
     if (soil_moisture > fc)
@@ -47,7 +47,7 @@ void FlowGeneration(StateParam<T> &state_param_loc, ConstParam<T> &const_param_l
         lateral_out_q = excess_q - percolate_out_q;
       }
     }
-    auto depth = rainfall - state_param_loc.Ea + (lateral_in_q - percolate_out_q - lateral_out_q) / cell_size / cell_size * 1000;
+    auto depth = rainfall - state_param_loc.actual_evaporate + (lateral_in_q - percolate_out_q - lateral_out_q) / cell_size / cell_size * 1000;
     if (depth > k)
     {
       auto a = (std::exp(soil_alpha * soil_moisture / sat) - 1) / (std::exp(soil_alpha) - 1);
@@ -73,21 +73,21 @@ void FlowGeneration(StateParam<T> &state_param_loc, ConstParam<T> &const_param_l
   else
   {
 
-    auto depth = rainfall - state_param_loc.Ea;
+    auto depth = rainfall - state_param_loc.actual_evaporate;
     if (depth > 0)
     {
       state_param_loc.runoff.= depth;
     }
     else
     {
-      depth = rainfall - state_param_loc.Ea;
+      depth = rainfall - state_param_loc.actual_evaporate;
       if (depth > 0)
       {
         state_param_loc = depth;
       }
       else
       {
-        state_param_loc.Ea = rainfall;
+        state_param_loc.actual_evaporate = rainfall;
       }
     }
   }
