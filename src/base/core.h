@@ -89,7 +89,7 @@ struct StateParam
   T per_mm;
   T groundwater_q;
   T prev_t_flow;
-  T prev_x_flow;
+  T upstream_in_flow;
   T current_flow;
   T water_level;
   T temp;
