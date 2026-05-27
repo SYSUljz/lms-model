@@ -59,3 +59,18 @@ T SolveSaintVenant(T iQ, T q, T alpha, T beta, T dT, T dX, T iQPrevX, T iQPrevT)
     }
   }
 }
+
+/// calculate Wetted Perimeter
+//
+/// @param iWaterLevel  (Water depth) [m]
+/// @param ibw         (Bottom width) [m]
+/// @param iss        (Side slope) [radians]
+/// @return            Wetted Perimeter [m]
+
+template <typename T>
+T GetChannelX(T iWaterLevel, T ibw, T iss)
+{
+  T X = ibw + 2 * iWaterLevel / Math.sin(iss);
+
+  return X;
+}

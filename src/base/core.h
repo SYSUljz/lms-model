@@ -29,6 +29,9 @@ struct GlobalParam
   // groundwater recession coefficient
   T baseflow_coff;
   T v;
+  T manning;
+  T ss;
+  T b;
 };
 
 template <typename T>
@@ -57,12 +60,9 @@ struct ConstParam
   T wl;
   T zs;
   T ks;
-  T b;
   T n;
   T v;
-  T ss;
   T bs;
-  T bw;
   T manning;
   T ep;
 };
