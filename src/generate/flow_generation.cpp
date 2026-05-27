@@ -2,6 +2,11 @@
 #include "utils.cpp"
 #include <cmath>
 template <typename T>
+T GetStepInFlow(StateParam<T> &state_param_loc, const ConstParam<T> &const_param_loc, T rainfall, const ModelMeta &meta_data, const GlobalParam<T> &global_param)
+{
+}
+
+template <typename T>
 void FlowGeneration(StateParam<T> &state_param_loc, const ConstParam<T> &const_param_loc, StateParam<T> &target_state, T rainfall, const ModelMeta &meta_data, const GlobalParam<T> &global_param)
 {
   // calculate flow generate in soil cell
@@ -15,7 +20,7 @@ void FlowGeneration(StateParam<T> &state_param_loc, const ConstParam<T> &const_p
     auto b = const_param_loc.b;
     auto k = GetK(soil_moisture, sat, b, ks);
     auto zs = const_param_loc.zs;
-    auto lateral_in_q = state_param_loc.lateral_in_flow;
+    auto lateral_in_q = state_param_loc.lateral_in_flow_mm;
     auto direct_factor = GetDirectFactor<T>(const_param_loc.d8);
     auto ep = const_param_loc.ep;
     auto v = const_param_loc.v;
@@ -39,7 +44,7 @@ void FlowGeneration(StateParam<T> &state_param_loc, const ConstParam<T> &const_p
     {
       // Percolate out quantity
       auto percolate_out_q = 0.001 * (k + state_param_loc.per_mm) / 2 * cell_size * cell_size;
-      auto lateral_out_q = 0.001 * (k * slop + state_param_loc.lat_mm) / 2 * direct_factor * cell_size * zs * 0.001;
+      auto lateral_out_q = 0.001 * (k * slop + state_param_loc.lateral_in_flow_mm) / 2 * direct_factor * cell_size * zs * 0.001;
       auto excess_q = 0.001 * zs * (cur - fc) * cell_size * cell_size;
       if (percolate_out_q + lateral_out_q > excess_q)
       {
@@ -56,7 +61,7 @@ void FlowGeneration(StateParam<T> &state_param_loc, const ConstParam<T> &const_p
     }
 
     // update downstream grid's lateral_in_q_
-    target_state.lateral_in_flow = lateral_out_q / cell_size / cell_size * 1000;
+    target_state.lateral_in_flow_mm += lateral_out_q / cell_size / cell_size * 1000;
     state_param_loc.per_mm = percolate_out_q / cell_size / cell_size * 1000;
     state_param_loc.soil_moisture += depth / zs;
 
@@ -66,8 +71,8 @@ void FlowGeneration(StateParam<T> &state_param_loc, const ConstParam<T> &const_p
       state_param_loc.soil_moisture = sat;
     }
 
-    state_param_loc.groundwater_q = global_param.baseflow_coff * state_param_loc.groundwater_q + (1 - global_param.baseflow_coff) * state_param_loc.per_mm;
-    state_param_loc.runoff += state_param_loc.groundwater_q;
+    state_param_loc.groundwater_mm = global_param.baseflow_coff * state_param_loc.groundwater_mm + (1 - global_param.baseflow_coff) * state_param_loc.per_mm;
+    state_param_loc.runoff += state_param_loc.groundwater_mm;
   }
 
   else

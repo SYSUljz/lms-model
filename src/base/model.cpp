@@ -12,7 +12,7 @@ public:
     for (auto &[idx, item] : std::views::enumerate(iter_order_))
     {
       int target_idx = target_idx_[idx];
-      ProcessCell(&temp_state_param_.raster_[idx], &const_param_.raster_[idx], &temp_state_param_.raster_[target_idx], time_interval_s_);
+      FlowGeneration(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_, time_interval);
     }
   };
   Simulate()
@@ -32,8 +32,8 @@ public:
   int GetTargetIdx(int this_idx) {};
 
 private:
-  StateRaster<T> state_param_;
-  const ConstRaster<T> const_param_;
+  std::vector<ConstParam<T>> state_param_;
+  const std::vector<StateParam<T>> const_param_;
   const ModelMeta<T> model_meta_;
   GlobalParam<T> global_param_;
   std::vector<int> iter_order_;
@@ -41,8 +41,18 @@ private:
   std::vector<int> station_id_;
   // rainfall_[time][station]
   std::vector<std::vector<T>> rainfall_;
-
   int rainfall_data_length_;
+  template <typename T>
+  auto FlowConfluenceMultiStep()
+  {
+    for (int i = 0; i < model_meta_.steps; ++i)
+    {
+      for (auto &[idx, item] : std::views::enumerate(iter_order_))
+      {
+        FlowConfluenceStepOnce(&state_param_[i], const &const_param_[i], &state_param_[target_idx_[i]], &rainfall_, const &meta_data_, const &global_param_);
+      }
+    }
+  }
 };
 
 template <typename T>
@@ -51,6 +61,6 @@ auto ProcessCell(StateParam<T> &loc_state, ConstParam<T> &const_param, StatePara
   // copy state_param raster here
   auto local_state_param = state_param;
   auto target_idx = GetTargetIdx(idx);
-  FlowGeneration(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_, time_interval);
-  FlowConfluence(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_, time_interval);
+
+  FlowConfluenceStepOnce(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_, time_interval);
 };

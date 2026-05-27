@@ -17,8 +17,9 @@ struct ModelMeta
   size_t heigh_;
   // raster resolution (m)
   size_t cell_size_;
-  int time_interval_s_;
+  size_t time_interval_s_;
   size_t runoff_dt_s_;
+  size_t confluence_steps_;
 };
 
 template <typename T>
@@ -71,7 +72,7 @@ actual_evaporate         — actual evapotranspiration
 runoff     — surface runoff
 lat_mm     — lateral flow
 per_mm     — percolation
-groundwater_q         — groundwater flow
+groundwater_mm         — groundwater flow
 QPrevT     — flow at previous time step
 QPrevX     — flow at previous spatial step
 Qcurr      — current flow
@@ -87,28 +88,11 @@ struct StateParam
   T runoff;
   T lat_mm;
   T per_mm;
-  T groundwater_q;
+  T groundwater_mm;
   T prev_t_flow;
   T upstream_in_flow;
   T current_flow;
   T water_level;
   T temp;
-  T lateral_in_flow;
-};
-
-template <typename T>
-class ConstRaster
-{
-  ConstRaster(const ConstRaster &raster) = delete;
-  ConstRaster &operator=(const ConstRaster &raster) = delete;
-
-private:
-  std::vector<ConstParam> raster_;
-};
-
-template <typename T>
-class StateRaster
-{
-private:
-  std::vector<StateParam> raster_;
+  T lateral_in_flow_mm;
 };
