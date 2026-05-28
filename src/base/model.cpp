@@ -36,8 +36,9 @@ private:
   const std::vector<StateParam<T>> const_param_;
   const ModelMeta<T> model_meta_;
   GlobalParam<T> global_param_;
+  // During the simulation, a mock channel cell is added after the outlet to ensure the calculation accuracy of the outlet channel element.
   std::vector<int> iter_order_;
-  std::vector<int> target_idx_;
+  std::vector<std::optional<int>> target_idx_;
   std::vector<int> station_id_;
   // rainfall_[time][station]
   std::vector<std::vector<T>> rainfall_;
@@ -49,7 +50,14 @@ private:
     {
       for (auto &[idx, item] : std::views::enumerate(iter_order_))
       {
-        FlowConfluenceStepOnce(&state_param_[i], const &const_param_[i], &state_param_[target_idx_[i]], &rainfall_, const &meta_data_, const &global_param_);
+        if (target_idx_[i].has_value()) [[likely]]
+        {
+          FlowConfluenceStepOnce(&state_param_[i], const &const_param_[i], &state_param_[target_idx_[i]], &rainfall_, const &meta_data_, const &global_param_);
+        }
+        else
+        {
+          // todo: find a way to process pourpoint branch
+        }
       }
     }
   }

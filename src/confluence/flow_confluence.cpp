@@ -29,7 +29,7 @@ void FlowConfluenceStepOnce(StateParam<T> &state_param_loc, const ConstParam<T> 
     target_state.upstream_in_flow += state_param_loc.prev_t_flow;
   }
 
-  if (const_param_loc.label == Label::Channel)
+  else if (const_param_loc.label == Label::Channel)
   {
     auto bw = const_param_loc.bw;
     auto ss = global_param.ss;
@@ -37,5 +37,13 @@ void FlowConfluenceStepOnce(StateParam<T> &state_param_loc, const ConstParam<T> 
     auto manning = global_param.manning;
     auto water_depth = state_param_loc.water_level;
     auto channel_x = GetChannelX(water_depth, bw, ss);
+    auto next_h = target_state.water_level;
+    auto Sf = bs - (next_h - water_depth) / dx;
+
+    auto alpha = GetChannelAlpha(manning, channel_x, Sf);
+    T beta = static_cast<T>(0.6);
+    state_param_loc.current_flow = SolveSaintVenant(prev_t_flow, q, alpha, beta, dt, dx, upstream_flow_in, prev_t_flow);
+    state_param_loc.water_level = solveQtoH(state_param_loc.current_flow / 3600, manning, bs, bw, ss);
+    target_state.upstream_in_flow += state_param_loc.prev_t_flow;
   }
 };

@@ -23,6 +23,14 @@ T GetSoilAlpha(T manning, T cell_size, T slope)
   return alpha;
 }
 
+template <typename T>
+T GetChannelAlpha(T manning, T cell_size, T slope)
+{
+
+  T alpha = std::pow(manning * std::pow(cell_size, static_cast<T>(0.666667)) * std::pow(slope, static_cast<T>(-0.5)) / static_cast<T>(3600), static_cast<T>(0.6));
+  return alpha;
+}
+
 /// Solving the simplified form of Saint-Venant's equations using Newton's iteration method (evolution of moving/spreading waves)
 /// @param iQ Initial guess/Target flow at the current time [m^3/h]
 /// @param q Lateral inflow per unit length [m^3/h / m]
@@ -70,7 +78,44 @@ T SolveSaintVenant(T iQ, T q, T alpha, T beta, T dT, T dX, T iQPrevX, T iQPrevT)
 template <typename T>
 T GetChannelX(T iWaterLevel, T ibw, T iss)
 {
-  T X = ibw + 2 * iWaterLevel / Math.sin(iss);
+  T X = ibw + 2 * iWaterLevel / std::sin(iss);
 
   return X;
+}
+
+///
+///
+/// @param iQ       河道流量 (Flow rate) [m^3/s]
+/// @param iManning 曼宁粗糙系数 (Manning's n)
+/// @param Sf       能坡 (Friction slope) [ratio]
+/// @param ibw      河底宽度 (Bottom width) [m]
+/// @param iss      岸坡坡度 (Side slope) [radians]
+/// @return         计算得到的水位/水深 [m]
+///
+template <typename T>
+T solveQtoH(T iQ, T iManning, T Sf, T ibw, T iss)
+{
+  T dff;
+  T duu;
+  T h = static_cast<T>(0.001);
+  int MAXITER = 20;
+  for (int j = 0; j <= MAXITER; j++)
+  {
+
+    double a = ibw * h + h * h / std::tan(iss);
+
+    dff = std::pow(a, static_cast<T>(1.5)) - iQ * iManning * std::pow(Sf, static_cast<T>(-0.5)) * std::pow(ibw + 2.0D * h / std::sin(iss), static_cast<T>(0.66667));
+    duu = static_cast<T>(1.5) * std::pow(a, static_cast<T>(0.5)) * (ibw + static_cast<T>(2.0) * h / std::tan(iss)) - iQ * iManning * std::pow(Sf, static_cast<T>(-0.5)) * std::pow(ibw + static_cast<T>(2) * h / std::sin(iss), static_cast<T>(-0.3333)) * static_cast<T>(1.3333) / std::sin(iss);
+    dff /= duu;
+    h -= dff;
+    if (std::abs(dff) < static_cast<T>(0.000001))
+    {
+      break;
+    }
+    if (h < 0)
+    {
+      h = static_cast<T>(0.001);
+    }
+  }
+  return h;
 }
