@@ -6,7 +6,8 @@ class model
 {
 
 public:
-  Task<T> SimulateOneStep(StateRaster<T> &temp_state_param_, const ConstRaster<T> &const_param_, std::vector<T> station_rain)
+  // flowGeneration doesn't require child time step iteration
+  Task<T> SimulateOneStep(std::vector<T> station_rain)
   {
 
     for (auto &[idx, item] : std::views::enumerate(iter_order_))
@@ -14,8 +15,11 @@ public:
       int target_idx = target_idx_[idx];
       FlowGeneration(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_, time_interval);
     }
+
+    auto result = FlowConfluenceMultiStep();
   };
-  Simulate()
+
+  auto Simulate()
   {
     StateRaster<T> temp_state_param_ = state_param_;
     for (auto &item : rainfall_)
@@ -23,6 +27,7 @@ public:
       SimulateOneStep();
     }
   };
+
   // Particle Swarm Optimization
   Task<T> PSO() {};
   bool BuildOrder() {};
@@ -37,12 +42,15 @@ private:
   const ModelMeta<T> model_meta_;
   GlobalParam<T> global_param_;
   // During the simulation, a mock channel cell is added after the outlet to ensure the calculation accuracy of the outlet channel element.
+  // iter_order_[a]=b means the a'th step iter we process cell with b idx in param raster (both state and const)
   std::vector<int> iter_order_;
+  // iter_order_[a]=c means the ath step we are processing b cell the flow direction of b cell is c cell
   std::vector<std::optional<int>> target_idx_;
   std::vector<int> station_id_;
   // rainfall_[time][station]
   std::vector<std::vector<T>> rainfall_;
   int rainfall_data_length_;
+
   template <typename T>
   auto FlowConfluenceMultiStep()
   {
@@ -50,25 +58,16 @@ private:
     {
       for (auto &[idx, item] : std::views::enumerate(iter_order_))
       {
-        if (target_idx_[i].has_value()) [[likely]]
+        if (target_idx_[idx].has_value()) [[likely]]
         {
-          FlowConfluenceStepOnce(&state_param_[i], const &const_param_[i], &state_param_[target_idx_[i]], &rainfall_, const &meta_data_, const &global_param_);
+          FlowConfluenceStepOnce(&state_param_[item], const &const_param_[item], &state_param_[target_idx_[idx]], &rainfall_, const &meta_data_, const &global_param_);
         }
         else
         {
           // todo: find a way to process pourpoint branch
+          return this.state_param_[idx];
         }
       }
     }
   }
-};
-
-template <typename T>
-auto ProcessCell(StateParam<T> &loc_state, ConstParam<T> &const_param, StateParam<T> &target_state, int time_interval)
-{
-  // copy state_param raster here
-  auto local_state_param = state_param;
-  auto target_idx = GetTargetIdx(idx);
-
-  FlowConfluenceStepOnce(int idx, int target_idx, StateRaster<T> &state_param_, const ConstRaster<T> &const_param_, time_interval);
 };

@@ -5,7 +5,6 @@ template <typename T>
 void FlowConfluenceStepOnce(StateParam<T> &state_param_loc, const ConstParam<T> &const_param_loc, StateParam<T> &target_state, T rainfall, const ModelMeta &meta_data, const GlobalParam<T> &global_param)
 {
   auto cell_size = meta_data.cell_size_;
-  auto flow = state_param_loc.current_flow;
   auto steps = meta_data.confluence_steps_;
   auto dt = meta_data.runoff_dt_s_;
   auto alpha = GetSoilAlpha<T>(const_param_loc.n, cell_size, const_param_loc.slop);
@@ -42,8 +41,9 @@ void FlowConfluenceStepOnce(StateParam<T> &state_param_loc, const ConstParam<T> 
 
     auto alpha = GetChannelAlpha(manning, channel_x, Sf);
     T beta = static_cast<T>(0.6);
-    state_param_loc.current_flow = SolveSaintVenant(prev_t_flow, q, alpha, beta, dt, dx, upstream_flow_in, prev_t_flow);
-    state_param_loc.water_level = solveQtoH(state_param_loc.current_flow / 3600, manning, bs, bw, ss);
+    // We no longer use variables like current_flow as a temp_container once we calculate flow out , in will be stored in prev_t_flow.
+    state_param_loc.prev_t_flow = SolveSaintVenant(prev_t_flow, q, alpha, beta, dt, dx, upstream_flow_in, prev_t_flow);
+    state_param_loc.water_level = solveQtoH(state_param_loc.prev_t_flow / 3600, manning, bs, bw, ss);
     target_state.upstream_in_flow += state_param_loc.prev_t_flow;
   }
 };
