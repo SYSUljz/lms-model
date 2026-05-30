@@ -1,4 +1,6 @@
+#pragma once
 #include <cstddef>
+#include "base/direct.h"
 enum class Label
 {
   Soil,
@@ -60,9 +62,13 @@ struct ConstParam
   T wl;
   T zs;
   T ks;
+  // Clapp-Hornberger pore size distribution index
+  T b;
   T n;
   T v;
   T bs;
+  // channel bottom width (m)
+  T bw;
   T manning;
   T ep;
 };

@@ -1,0 +1,6 @@
+{
+  "C_Cpp.default.compilerPath": "/usr/bin/gcc-15",
+  "cmake.debugConfig": {
+    "cwd": "${workspaceFolder}"
+  }
+}
