@@ -23,7 +23,8 @@ void FlowConfluenceStepOnce(StateParam<T> &state_param_loc, const ConstParam<T> 
 
   if (const_param_loc.label == Label::Soil)
   {
-
+    auto ground_flow = state_param_loc.groundwater_mm;
+    q += ground_flow * cell_size * cell_size * 0.001 / dx / steps / dt;
     state_param_loc.prev_t_flow = SolveSaintVenant(prev_t_flow, q, alpha, beta, dt, dx, upstream_flow_in, prev_t_flow);
     target_state.upstream_in_flow += state_param_loc.prev_t_flow;
   }

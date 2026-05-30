@@ -72,7 +72,7 @@ void FlowGeneration(StateParam<T> &state_param_loc, const ConstParam<T> &const_p
     }
 
     state_param_loc.groundwater_mm = global_param.baseflow_coff * state_param_loc.groundwater_mm + (1 - global_param.baseflow_coff) * state_param_loc.per_mm;
-    state_param_loc.runoff += state_param_loc.groundwater_mm;
+    // state_param_loc.runoff += state_param_loc.groundwater_mm;
   }
 
   else
@@ -88,7 +88,7 @@ void FlowGeneration(StateParam<T> &state_param_loc, const ConstParam<T> &const_p
       depth = rainfall - state_param_loc.actual_evaporate;
       if (depth > 0)
       {
-        state_param_loc = depth;
+        state_param_loc.runoff = depth;
       }
       else
       {
