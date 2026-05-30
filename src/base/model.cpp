@@ -1,6 +1,8 @@
 #include "./utils.cpp"
 #include "base/direct.h"
 #include "base/core.h"
+#include "base/raster.h"
+#include <memory>
 template <typename T>
 class model
 {
@@ -37,8 +39,8 @@ public:
   int GetTargetIdx(int this_idx) {};
 
 private:
-  std::vector<ConstParam<T>> state_param_;
-  const std::vector<StateParam<T>> const_param_;
+  StateRaster state_param_;
+  const ConstRaster const_param_;
   const ModelMeta<T> model_meta_;
   GlobalParam<T> global_param_;
   // During the simulation, a mock channel cell is added after the outlet to ensure the calculation accuracy of the outlet channel element.
@@ -60,7 +62,7 @@ private:
       {
         if (target_idx_[idx].has_value()) [[likely]]
         {
-          FlowConfluenceStepOnce(&state_param_[item], const &const_param_[item], &state_param_[target_idx_[idx]], &rainfall_, const &meta_data_, const &global_param_);
+          FlowConfluenceStepOnce(&state_param_[item], const &(*const_param_)[item], &state_param_[target_idx_[idx]], &rainfall_, const &meta_data_, const &global_param_);
         }
         else
         {

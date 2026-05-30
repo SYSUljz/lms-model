@@ -10,7 +10,7 @@
 #include <optional>
 #include <string>
 
-#include "builder.cpp"
+#include "raster_builder.cpp"
 
 using T = double;
 
@@ -38,13 +38,13 @@ static void PrintFieldStats(const char *name, const ConstRaster<T> &cr, Acc acc,
   double mx = std::numeric_limits<double>::lowest();
   double sum = 0.0;
   std::size_t cnt = 0;
-  for (std::size_t i = 0; i < cr.cells.size(); ++i)
+  for (std::size_t i = 0; i < (*cr.cells).size(); ++i)
   {
     if (!cr.active[i])
       continue;
-    if (only && cr.cells[i].label != *only)
+    if (only && (*cr.cells)[i].label != *only)
       continue;
-    const double val = static_cast<double>(acc(cr.cells[i]));
+    const double val = static_cast<double>(acc((*cr.cells)[i]));
     mn = std::min(mn, val);
     mx = std::max(mx, val);
     sum += val;
@@ -79,19 +79,19 @@ int main(int argc, char **argv)
 
     std::size_t active = 0;
     std::map<int, std::size_t> label_counts;
-    for (std::size_t i = 0; i < cr.cells.size(); ++i)
+    for (std::size_t i = 0; i < (*cr.cells).size(); ++i)
     {
       if (!cr.active[i])
         continue;
       ++active;
-      label_counts[static_cast<int>(cr.cells[i].label)]++;
+      label_counts[static_cast<int>((*cr.cells)[i].label)]++;
     }
 
     std::printf("== Model I/O summary (%s) ==\n", dir.c_str());
     std::printf("grid        : %zu x %zu  (cell_size = %zu m)\n",
                 cr.meta.weith_, cr.meta.heigh_, cr.meta.cell_size_);
     std::printf("cells       : %zu total, %zu active (in basin)\n",
-                cr.cells.size(), active);
+                (*cr.cells).size(), active);
 
     std::printf("raw label.tif values:\n");
     for (const auto &[val, c] : raw_hist)
@@ -118,11 +118,11 @@ int main(int argc, char **argv)
     PrintFieldStats("manning", cr, [](const ConstParam<T> &c) { return c.manning; }, Label::Channel);
 
     // Dump one active cell so the assembled ConstParam can be eyeballed.
-    for (std::size_t i = 0; i < cr.cells.size(); ++i)
+    for (std::size_t i = 0; i < (*cr.cells).size(); ++i)
     {
       if (!cr.active[i])
         continue;
-      const ConstParam<T> &c = cr.cells[i];
+      const ConstParam<T> &c = (*cr.cells)[i];
       std::printf("sample active cell #%zu: label=%s d8=%d slop=%g ks=%g sat=%g fc=%g bw=%g manning=%g\n",
                   i, LabelName(c.label), static_cast<int>(c.d8),
                   static_cast<double>(c.slop), static_cast<double>(c.ks),

@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <vector>
 #include "base/core.h"
-
+#include <memory.h>
 /// A single 2D raster band loaded into memory (row-major).
 /// Decoupled from GDAL: any reader can populate this.
 template <typename T>
@@ -35,7 +35,26 @@ struct ConstRaster
 {
   ModelMeta meta{};
   // row-major, size == meta.weith_ * meta.heigh_
-  std::vector<ConstParam<T>> cells;
+  std::unique_ptr<std::vector<ConstParam<T>>> cells;
   // 1 if the cell is inside the basin (label is not NoData), else 0
   std::vector<char> active;
+
+  const ConstParam<T> &operator[](std::size_t idx) const
+  {
+    return (*cells)[idx];
+  }
+};
+template <typename T>
+struct StateRaster
+{
+  ModelMeta meta{};
+  // row-major, size == meta.weith_ * meta.heigh_
+  std::unique_ptr<std::vector<StateParam<T>>> cells;
+  // 1 if the cell is inside the basin (label is not NoData), else 0
+  std::vector<char> active;
+
+  StateParam<T> &operator[](std::size_t idx) const
+  {
+    return (*cells)[idx];
+  }
 };
