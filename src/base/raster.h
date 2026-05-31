@@ -1,7 +1,6 @@
 #pragma once
-#include <memory.h>
-
 #include <cstddef>
+#include <memory>
 #include <vector>
 
 #include "base/core.h"
@@ -40,14 +39,18 @@ struct ConstRaster {
 };
 template <typename T>
 struct StateRaster {
-  ModelMeta meta {};
+  ModelMeta meta_;
   // row-major, size == meta.weith_ * meta.heigh_
   std::unique_ptr<std::vector<StateParam<T>>> cells;
   // 1 if the cell is inside the basin (label is not NoData), else 0
-  std::vector<char> active;
+  std::shared_ptr<std::vector<char>> active_;
 
-  StateRaster() {};
-  StateRaster& StateRaster(const StateRaster& stateraster) = delete;
-  StateRaster& operator=(const StateRaster& staterraster) = delete;
+  StateRaster(ModelMeta meta, std::shared_ptr<std::vector<char>> active) : meta_(meta), active_(active) {
+    std::size_t n_cells = meta_.weith_ * meta_.heigh_;
+    cells.reset(new std::vector<StateParam<T>>(n_cells));
+  };
+  StateRaster(const StateRaster& stateraster) = delete;
+  StateRaster& operator=(const StateRaster& stateraster) = delete;
+
   StateParam<T>& operator[](std::size_t idx) const { return (*cells)[idx]; }
 };

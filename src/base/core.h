@@ -80,15 +80,15 @@ temp       — intermediate computation variable
 
 template <typename T>
 struct StateParam {
-  T soil_moisture;
-  T actual_evaporate;
-  T runoff;
-  T lat_mm;
-  T per_mm;
-  T groundwater_mm;
-  T prev_t_flow;
-  T upstream_in_flow;
-  T water_level;
-  T temp;
-  T lateral_in_flow_mm;
+  T soil_moisture {0};
+  T actual_evaporate {0};
+  T runoff {0};
+  T lat_mm {0};
+  T per_mm {0};
+  T groundwater_mm {0};
+  T prev_t_flow {0};
+  T upstream_in_flow {0};
+  T water_level {0};
+  T temp {0};
+  T lateral_in_flow_mm {0};
 };
