@@ -1,20 +1,14 @@
 #pragma once
 #include <cstddef>
-#include "base/direct.h"
-enum class Label
-{
-  Soil,
-  Channel,
-  Reservoir
-};
 
-struct StationAttribute
-{
+#include "base/direct.h"
+enum class Label { Soil, Channel, Reservoir };
+
+struct StationAttribute {
   size_t station_id;
 };
 
-struct ModelMeta
-{
+struct ModelMeta {
   size_t weith_;
   size_t heigh_;
   // raster resolution (m)
@@ -25,8 +19,7 @@ struct ModelMeta
 };
 
 template <typename T>
-struct GlobalParam
-{
+struct GlobalParam {
   T soil_alpha_;
   // groundwater recession coefficient
   T baseflow_coff;
@@ -37,8 +30,7 @@ struct GlobalParam
 };
 
 template <typename T>
-struct ConstParam
-{
+struct ConstParam {
   // Topographic factors
   Label label;
   Direct8 d8;
@@ -87,8 +79,7 @@ temp       — intermediate computation variable
 */
 
 template <typename T>
-struct StateParam
-{
+struct StateParam {
   T soil_moisture;
   T actual_evaporate;
   T runoff;

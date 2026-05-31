@@ -1,9 +1,10 @@
+#include "direct.h"
 #include "src/base/core.h"
 #include "utils.cpp"
-#include "direct.h"
 template <typename T>
-void FlowConfluenceStepOnce(StateParam<T> &state_param_loc, const ConstParam<T> &const_param_loc, StateParam<T> &target_state, T rainfall, const ModelMeta &meta_data, const GlobalParam<T> &global_param)
-{
+void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>& const_param_loc,
+                            StateParam<T>& target_state, T rainfall, const ModelMeta& meta_data,
+                            const GlobalParam<T>& global_param) {
   auto cell_size = meta_data.cell_size_;
   auto steps = meta_data.confluence_steps_;
   auto dt = meta_data.runoff_dt_s_;
@@ -21,16 +22,14 @@ void FlowConfluenceStepOnce(StateParam<T> &state_param_loc, const ConstParam<T> 
   auto q = total_runoff_mm * L * L * 0.001 / steps / dx / dt;
   // Slope Kinematic Wave Routing for Soil cell
 
-  if (const_param_loc.label == Label::Soil)
-  {
+  if (const_param_loc.label == Label::Soil) {
     auto ground_flow = state_param_loc.groundwater_mm;
     q += ground_flow * cell_size * cell_size * 0.001 / dx / steps / dt;
     state_param_loc.prev_t_flow = SolveSaintVenant(prev_t_flow, q, alpha, beta, dt, dx, upstream_flow_in, prev_t_flow);
     target_state.upstream_in_flow += state_param_loc.prev_t_flow;
   }
 
-  else if (const_param_loc.label == Label::Channel)
-  {
+  else if (const_param_loc.label == Label::Channel) {
     auto bw = const_param_loc.bw;
     auto ss = global_param.ss;
     auto bs = const_param_loc.bs;
@@ -42,7 +41,8 @@ void FlowConfluenceStepOnce(StateParam<T> &state_param_loc, const ConstParam<T> 
 
     auto alpha = GetChannelAlpha(manning, channel_x, Sf);
     T beta = static_cast<T>(0.6);
-    // We no longer use variables like current_flow as a temp_container once we calculate flow out , in will be stored in prev_t_flow.
+    // We no longer use variables like current_flow as a temp_container once we
+    // calculate flow out , in will be stored in prev_t_flow.
     state_param_loc.prev_t_flow = SolveSaintVenant(prev_t_flow, q, alpha, beta, dt, dx, upstream_flow_in, prev_t_flow);
     state_param_loc.water_level = solveQtoH(state_param_loc.prev_t_flow / 3600, manning, bs, bw, ss);
     target_state.upstream_in_flow += state_param_loc.prev_t_flow;

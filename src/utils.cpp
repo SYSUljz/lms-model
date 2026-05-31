@@ -2,36 +2,36 @@
 /// @brief Clapp-Hornberger unsaturated hydraulic conductivity formula
 /// @param cur Current volumetric soil moisture θ
 /// @param sat Saturated soil moisture θ_sat
-/// @param b Clapp-Hornberger pore-size distribution index (soil texture parameter）
+/// @param b Clapp-Hornberger pore-size distribution index (soil texture
+/// parameter）
 /// @param ks Saturated hydraulic conductivity (mm/step)
 /// @return Hydraulic conductivity K at current moisture (mm/step)
 template <typename T>
-T inline GetK(T cur, T sat, T b, T ks)
-{
+T inline GetK(T cur, T sat, T b, T ks) {
   return ks * std::pow(cur / sat, 2 * b + 3);
 };
 
 template <typename T>
-T GetSoilAlpha(T manning, T cell_size, T slope)
-{
-  if (slope == 0)
-      [[unlikely]]
-  {
+T GetSoilAlpha(T manning, T cell_size, T slope) {
+  if (slope == 0) [[unlikely]] {
     slope = static_cast<T>(1e-6);
   }
-  T alpha = std::pow(manning * std::pow(cell_size, static_cast<T>(0.666667)) * std::pow(slope, static_cast<T>(-0.5)) / static_cast<T>(3600), static_cast<T>(0.6));
+  T alpha = std::pow(manning * std::pow(cell_size, static_cast<T>(0.666667)) * std::pow(slope, static_cast<T>(-0.5)) /
+                         static_cast<T>(3600),
+                     static_cast<T>(0.6));
   return alpha;
 }
 
 template <typename T>
-T GetChannelAlpha(T manning, T cell_size, T slope)
-{
-
-  T alpha = std::pow(manning * std::pow(cell_size, static_cast<T>(0.666667)) * std::pow(slope, static_cast<T>(-0.5)) / static_cast<T>(3600), static_cast<T>(0.6));
+T GetChannelAlpha(T manning, T cell_size, T slope) {
+  T alpha = std::pow(manning * std::pow(cell_size, static_cast<T>(0.666667)) * std::pow(slope, static_cast<T>(-0.5)) /
+                         static_cast<T>(3600),
+                     static_cast<T>(0.6));
   return alpha;
 }
 
-/// Solving the simplified form of Saint-Venant's equations using Newton's iteration method (evolution of moving/spreading waves)
+/// Solving the simplified form of Saint-Venant's equations using Newton's
+/// iteration method (evolution of moving/spreading waves)
 /// @param iQ Initial guess/Target flow at the current time [m^3/h]
 /// @param q Lateral inflow per unit length [m^3/h / m]
 /// @param alpha Evolution equation parameter alpha
@@ -43,26 +43,23 @@ T GetChannelAlpha(T manning, T cell_size, T slope)
 /// @return The current grid flow rate is [m^3/h]
 ///
 template <typename T>
-T SolveSaintVenant(T iQ, T q, T alpha, T beta, T dT, T dX, T iQPrevX, T iQPrevT)
-{
+T SolveSaintVenant(T iQ, T q, T alpha, T beta, T dT, T dX, T iQPrevX, T iQPrevT) {
   int cnt = 0;
-  while (cnt < 20)
-  {
+  while (cnt < 20) {
     cnt++;
-    auto diff = iQ * dT / dX + alpha * std::pow(iQ, beta) - iQPrevX * dT / dX - alpha * std::pow(iQPrevT, beta) - q * dT;
+    auto diff =
+        iQ * dT / dX + alpha * std::pow(iQ, beta) - iQPrevX * dT / dX - alpha * std::pow(iQPrevT, beta) - q * dT;
     duu = dT / dX + alpha * beta * std::pow(iQ, beta - 1);
 
     dff /= duu;
 
-    if (std::abs(dff) < static_cast<T>(1e-6))
-    {
+    if (std::abs(dff) < static_cast<T>(1e-6)) {
       return iQ;
     }
 
     iQ -= dff;
 
-    if (iQ < 0) [[unlikely]]
-    {
+    if (iQ < 0) [[unlikely]] {
       iQ = std::abs(iQ);
     }
   }
@@ -76,8 +73,7 @@ T SolveSaintVenant(T iQ, T q, T alpha, T beta, T dT, T dX, T iQPrevX, T iQPrevT)
 /// @return            Wetted Perimeter [m]
 
 template <typename T>
-T GetChannelX(T iWaterLevel, T ibw, T iss)
-{
+T GetChannelX(T iWaterLevel, T ibw, T iss) {
   T X = ibw + 2 * iWaterLevel / std::sin(iss);
 
   return X;
@@ -93,27 +89,26 @@ T GetChannelX(T iWaterLevel, T ibw, T iss)
 /// @return         计算得到的水位/水深 [m]
 ///
 template <typename T>
-T solveQtoH(T iQ, T iManning, T Sf, T ibw, T iss)
-{
+T solveQtoH(T iQ, T iManning, T Sf, T ibw, T iss) {
   T dff;
   T duu;
   T h = static_cast<T>(0.001);
   int MAXITER = 20;
-  for (int j = 0; j <= MAXITER; j++)
-  {
-
+  for (int j = 0; j <= MAXITER; j++) {
     double a = ibw * h + h * h / std::tan(iss);
 
-    dff = std::pow(a, static_cast<T>(1.5)) - iQ * iManning * std::pow(Sf, static_cast<T>(-0.5)) * std::pow(ibw + 2.0D * h / std::sin(iss), static_cast<T>(0.66667));
-    duu = static_cast<T>(1.5) * std::pow(a, static_cast<T>(0.5)) * (ibw + static_cast<T>(2.0) * h / std::tan(iss)) - iQ * iManning * std::pow(Sf, static_cast<T>(-0.5)) * std::pow(ibw + static_cast<T>(2) * h / std::sin(iss), static_cast<T>(-0.3333)) * static_cast<T>(1.3333) / std::sin(iss);
+    dff = std::pow(a, static_cast<T>(1.5)) - iQ * iManning * std::pow(Sf, static_cast<T>(-0.5)) *
+                                                 std::pow(ibw + 2.0D * h / std::sin(iss), static_cast<T>(0.66667));
+    duu = static_cast<T>(1.5) * std::pow(a, static_cast<T>(0.5)) * (ibw + static_cast<T>(2.0) * h / std::tan(iss)) -
+          iQ * iManning * std::pow(Sf, static_cast<T>(-0.5)) *
+              std::pow(ibw + static_cast<T>(2) * h / std::sin(iss), static_cast<T>(-0.3333)) * static_cast<T>(1.3333) /
+              std::sin(iss);
     dff /= duu;
     h -= dff;
-    if (std::abs(dff) < static_cast<T>(0.000001))
-    {
+    if (std::abs(dff) < static_cast<T>(0.000001)) {
       break;
     }
-    if (h < 0)
-    {
+    if (h < 0) {
       h = static_cast<T>(0.001);
     }
   }
