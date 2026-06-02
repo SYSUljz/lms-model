@@ -1,4 +1,6 @@
 #pragma once
+namespace lxh {
+namespace direct {
 enum class Direct8 { Right, DownRight, Down, DownLeft, Left, UpLeft, Up, UpRight };
 
 template <typename T>
@@ -13,3 +15,5 @@ constexpr T GetDirectFactor(Direct8 direct) {
       return T {1};
   }
 }
+}  // namespace direct
+}  // namespace lxh

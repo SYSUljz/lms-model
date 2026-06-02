@@ -4,6 +4,8 @@
 #include <vector>
 
 #include "base/core.h"
+namespace lms {
+namespace raster {
 /// A single 2D raster band loaded into memory (row-major).
 /// Decoupled from GDAL: any reader can populate this.
 template <typename T>
@@ -45,7 +47,8 @@ struct StateRaster {
   // 1 if the cell is inside the basin (label is not NoData), else 0
   std::shared_ptr<std::vector<char>> active_;
 
-  StateRaster(ModelMeta meta, std::shared_ptr<std::vector<char>> active) : meta_(meta), active_(active) {
+  StateRaster(ModelMeta meta, std::shared_ptr<std::vector<char>> active)
+      : meta_(meta), active_(active), cells(std::nullptr_t) {
     std::size_t n_cells = meta_.weith_ * meta_.heigh_;
     cells.reset(new std::vector<StateParam<T>>(n_cells));
   };
@@ -54,3 +57,5 @@ struct StateRaster {
 
   StateParam<T>& operator[](std::size_t idx) const { return (*cells)[idx]; }
 };
+}  // namespace raster
+}  // namespace lms

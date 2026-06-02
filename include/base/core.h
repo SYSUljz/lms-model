@@ -1,7 +1,10 @@
 #pragma once
 #include <cstddef>
 
-#include "base/direct.h"
+#include "direct.h"
+
+namespace lxh {
+namespace core {
 enum class Label { Soil, Channel, Reservoir };
 
 struct StationAttribute {
@@ -92,3 +95,5 @@ struct StateParam {
   T temp {0};
   T lateral_in_flow_mm {0};
 };
+}  // namespace core
+}  // namespace lxh
