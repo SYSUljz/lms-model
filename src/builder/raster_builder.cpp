@@ -115,7 +115,7 @@ class ModelBuilder {
     }
 
     ConstRaster<T> out;
-    out.meta.weith_ = static_cast<std::size_t>(W);
+    out.meta.width_ = static_cast<std::size_t>(W);
     out.meta.heigh_ = static_cast<std::size_t>(H);
     out.meta.cell_size_ = static_cast<std::size_t>(label.cell_size);
 

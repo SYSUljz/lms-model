@@ -32,7 +32,7 @@ struct Raster {
 template <typename T>
 struct ConstRaster {
   ModelMeta meta {};
-  // row-major, size == meta.weith_ * meta.heigh_
+  // row-major, size == meta.width_ * meta.heigh_
   std::unique_ptr<std::vector<ConstParam<T>>> cells;
   // 1 if the cell is inside the basin (label is not NoData), else 0
   std::vector<char> active;
@@ -42,14 +42,14 @@ struct ConstRaster {
 template <typename T>
 struct StateRaster {
   ModelMeta meta_;
-  // row-major, size == meta.weith_ * meta.heigh_
+  // row-major, size == meta.width_ * meta.heigh_
   std::unique_ptr<std::vector<StateParam<T>>> cells;
   // 1 if the cell is inside the basin (label is not NoData), else 0
   std::shared_ptr<std::vector<char>> active_;
 
   StateRaster(ModelMeta meta, std::shared_ptr<std::vector<char>> active)
       : meta_(meta), active_(active), cells(std::nullptr_t) {
-    std::size_t n_cells = meta_.weith_ * meta_.heigh_;
+    std::size_t n_cells = meta_.width_ * meta_.heigh_;
     cells.reset(new std::vector<StateParam<T>>(n_cells));
   };
   StateRaster(const StateRaster& stateraster) = delete;

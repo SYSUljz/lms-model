@@ -7,18 +7,19 @@ namespace lxh {
 namespace core {
 enum class Label { Soil, Channel, Reservoir };
 
-struct StationAttribute {
-  size_t station_id;
-};
-
+template <typename T>
 struct ModelMeta {
-  size_t weith_;
+  size_t width_;
   size_t heigh_;
   // raster resolution (m)
   size_t cell_size_;
   size_t time_interval_s_;
   size_t runoff_dt_s_;
   size_t confluence_steps_;
+  T raster_min_lat_;
+  T raster_max_lat_;
+  T raster_min_long_;
+  T raster_max_long_;
 };
 
 template <typename T>

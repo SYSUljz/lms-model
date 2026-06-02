@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
     }
 
     std::printf("== Model I/O summary (%s) ==\n", dir.c_str());
-    std::printf("grid        : %zu x %zu  (cell_size = %zu m)\n", cr.meta.weith_, cr.meta.heigh_, cr.meta.cell_size_);
+    std::printf("grid        : %zu x %zu  (cell_size = %zu m)\n", cr.meta.width_, cr.meta.heigh_, cr.meta.cell_size_);
     std::printf("cells       : %zu total, %zu active (in basin)\n", (*cr.cells).size(), active);
 
     std::printf("raw label.tif values:\n");
