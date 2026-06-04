@@ -7,15 +7,15 @@ namespace rain {
 template <typename T>
 class Station {
   std::size_t id_;
-  std::size_t idx_;
+  std::size_t idx_ {};
   T geo_lat_;
   T geo_long_;
   std::size_t raster_x_ {0};
   std::size_t raster_y_ {0};
   std::string name_;
 
-  Station(size_t id, size_t idx, T geo_lat, T geo_long, std::string& name, const ModelMeta<T>& meta)
-      : id_(id), idx_(idx), geo_lat_(geo_lat), geo_long_(geo_long), name_(name) {}
+  Station(size_t id, , T geo_lat, T geo_long, std::string& name, const ModelMeta<T>& meta)
+      : id_(id), geo_lat_(geo_lat), geo_long_(geo_long), name_(name) {}
   void GeoPos2RasterPos(const ModelMeta<T>& meta);
 };
 template <typename T, std::size_t station_cnt>

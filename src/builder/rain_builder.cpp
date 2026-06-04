@@ -1,93 +1,108 @@
 #include <filesystem>
+#include <fstream>
+#include <memory>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "base/rain.h"
-template <typename T>
+template <typename T, size_t kstation_cnt>
 class RainBuilder {
-  std::filesystem::path dir_;
-
  public:
-  RainBuilder& from_directory(const std::string& dir) {
+  RainBuilder& from_directory(const std::string& dir, const std::string& file_name) : file_name_(file_name) {
     dir_ = dir;
     return *this;
   }
 
-  /// Read a .
-  ConstRaster<T> build_rain_csv() const {
+  model<T> BuildAll() {
+    BuildStationCsv();
+    BuildRainCsv();
+  }
+
+ private:
+  std::filesystem::path dir_;
+  std::string file_name_;
+  std::unique_ptr<std::vector<Station>> stations_;
+  std::unique_ptr<std::vector<RainfallEvent>> events_;
+
+  void BuildStationCsv() const {
+    if (dir_.empty()) {
+      throw std::runtime_error("StationBuilder: model directory not set");
+    }
+    std::ifstream file((dir_ / name).string());
+    if (!file.is_open()) {
+      throw std::runtime_error("StationBuilder: Station data file not find");
+    }
+    std::size_t id;
+    T geo_lat;
+    T geo_long;
+    std::string name;
+    // read header (skip for now)
+    std::getline(file, line);
+
+    while (std::getline(file, line)) {
+      std::stringstream ss(line);
+      if (std::getline(ss, id, ',') && std::getline(ss, name, ',') && std::getline(ss, geo_lat, ',') &&
+          std::getline(ss, geo_long, ',')) {
+        stations_->emplace_back(id, name, geo_lat, geo_long);
+      }
+    }
+  }
+
+  void BuildRainCsv() const {
     if (dir_.empty()) {
       throw std::runtime_error("RainBuilder: model directory not set");
     }
+    std::ifstream file((dir_ / file_name_).string());
+    if (!file.is_open()) {
+      throw std::runtime_error("RainBuilder: rain data file not find");
+    }
 
-    auto load = [&](const char* name) { return ReadBand<T>((dir_ / name).string()); };
+    std::string line;
+    // read header: ID,Q,<station_name_1>,<station_name_2>,...
+    std::getline(file, line);
+    std::stringstream header_ss(line);
+    std::string cell;
+    std::vector<std::string> headers;
+    while (std::getline(header_ss, cell, ',')) {
+      headers.push_back(cell);
+    }
 
-    // topology / classification
-    Raster<T> label = load("label.tif");
-    Raster<T> d8 = load("d8.tif");
-    Raster<T> slope = load("slope.tif");
-    // soil parameters
-    Raster<T> sat = load("sat.tif");
-    Raster<T> fc = load("fc.tif");
-    Raster<T> wl = load("wl.tif");
-    Raster<T> zs = load("zs.tif");
-    Raster<T> ks = load("ks.tif");
-    Raster<T> b = load("b.tif");
-    Raster<T> n = load("n.tif");
-    Raster<T> v = load("v.tif");
-    // channel parameters
-    Raster<T> bs = load("bs.tif");
-    Raster<T> bw = load("bw.tif");
-    Raster<T> manning = load("manning.tif");
-
-    const int W = label.width;
-    const int H = label.height;
-
-    const std::array<const Raster<T>*, 14> all = {&label, &d8, &slope, &sat, &fc, &wl, &zs,
-                                                  &ks,    &b,  &n,     &v,   &bs, &bw, &manning};
-    for (const Raster<T>* r : all) {
-      if (r->width != W || r->height != H) {
-        throw std::runtime_error("RainBuilder: raster dimension mismatch");
+    // Build mapping: CSV column index → station index in stations_ array
+    // headers[0] = "ID", headers[1] = "Q", headers[2..] = station names
+    std::vector<int> col_to_station_idx(headers.size(), -1);
+    for (std::size_t col = 2; col < headers.size(); ++col) {
+      for (std::size_t si = 0; si < stations_->size(); ++si) {
+        if ((*stations_)[si].name_ == headers[col]) {
+          col_to_station_idx[col] = static_cast<int>(si);
+          break;
+        }
       }
     }
 
-    ConstRaster<T> out;
-    out.meta.width_ = static_cast<std::size_t>(W);
-    out.meta.heigh_ = static_cast<std::size_t>(H);
-    out.meta.cell_size_ = static_cast<std::size_t>(label.cell_size);
+    RainfallEvent<T, kstation_cnt> event;
+    event.duration_ = 0;
+    event.time_interval_s_ = 3600;  // 1-hour interval
 
-    const std::size_t n_cells = static_cast<std::size_t>(W) * static_cast<std::size_t>(H);
-    out.cells.reset(new std::vector<ConstParam<T>>(n_cells));
-    out.active.assign(n_cells, 0);
+    while (std::getline(file, line)) {
+      std::stringstream ss(line);
+      std::string value;
+      int col = 0;
+      Rainfall<T, kstation_cnt> rainfall;
+      rainfall.rainfall_row_.fill(T {0});
 
-    for (std::size_t i = 0; i < n_cells; ++i) {
-      // A cell is part of the basin iff its label is not NoData.
-      if (label.is_nodata_at(i)) {
-        continue;
+      while (std::getline(ss, value, ',')) {
+        // col 0 = ID (time step), col 1 = Q (flow) — skip
+        // col 2.. = station rainfall values
+        if (col >= 2 && col_to_station_idx[col] >= 0) {
+          rainfall.rainfall_row_[static_cast<std::size_t>(col_to_station_idx[col])] = static_cast<T>(std::stod(value));
+        }
+        ++col;
       }
-      out.active[i] = 1;
-
-      ConstParam<T>& c = (*out.cells)[i];
-      c.label = LabelFromRaster(static_cast<double>(label.data[i]));
-      c.d8 = D8FromRaster(static_cast<double>(d8.data[i]));
-      c.slop = slope.data[i];
-      c.sat = sat.data[i];
-      c.fc = fc.data[i];
-      c.wl = wl.data[i];
-      c.zs = zs.data[i];
-      c.ks = ks.data[i];
-      c.b = b.data[i];
-      c.n = n.data[i];
-      c.v = v.data[i];
-      c.bs = bs.data[i];
-      c.bw = bw.data[i];
-      c.manning = manning.data[i];
-      c.ep = T {0};  // no potential-evapotranspiration tile yet
+      event.rainfall_event_.push_back(rainfall);
+      ++event.duration_;
     }
 
-    return out;
+    events_->push_back(std::move(event));
   }
-  model<T> BuildRain() {}
-
- private:
-  unique_ptr<> BuildStateRaster() {}
-  void BuildStreamOrder() {}
 };
