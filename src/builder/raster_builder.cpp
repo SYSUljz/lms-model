@@ -150,6 +150,64 @@ class ModelBuilder {
 
     return out;
   }
+  [[nodiscard]] std::vector<int> BuildOrder() {
+    auto load = [&](const char* name) { return ReadBand<T>((dir_ / name).string()); };
+    Raster<int> d8 = load("d8.tif");
+    auto width = d8.width;
+    auto height = d8.height;
+
+    std::vector<int> outlets;
+
+    for (size_t i = 0; i < d8.data.size(); ++i) {
+      int dir = d8.data[i];
+
+      if (dir != 1 && dir != 2 && dir != 4 && dir != 8 && dir != 16 && dir != 32 && dir != 64 && dir != 128) {
+        outlets.push_back(i);
+        continue;
+      }
+
+      int x = i % width;
+      int y = i / width;
+      int nx = x, ny = y;
+
+      switch (dir) {
+        case 1:
+          nx++;
+          break;  // E
+        case 2:
+          nx++;
+          ny++;
+          break;  // SE
+        case 4:
+          ny++;
+          break;  // S
+        case 8:
+          nx--;
+          ny++;
+          break;  // SW
+        case 16:
+          nx--;
+          break;  // W
+        case 32:
+          nx--;
+          ny--;
+          break;  // NW
+        case 64:
+          ny--;
+          break;  // N
+        case 128:
+          nx++;
+          ny--;
+          break;  // NE
+      }
+
+      if (nx < 0 || nx >= width || ny < 0 || ny >= height || d8.data[nx + width * ny] == d8.nodata) {
+        outlets.push_back(i);
+      }
+    }
+
+    return outlets;
+  }
   model<T> BuildModel() {}
 
  private:
