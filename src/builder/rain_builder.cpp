@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "base/core.h"
 #include "base/rain.h"
 template <typename T, size_t kstation_cnt>
 class RainBuilder {
@@ -14,16 +15,19 @@ class RainBuilder {
     return *this;
   }
 
-  model<T> BuildAll() {
+  model<T> BuildAll(const ModelMeta& meta) {
     BuildStationCsv();
-    BuildRainCsv();
+    BuildRainCsv(meta.time_interval_s_);
+    for (auto& station : stations_) {
+      station.GeoPos2RasterPos(meta);
+    }
   }
 
  private:
   std::filesystem::path dir_;
   std::string file_name_;
-  std::unique_ptr<std::vector<Station>> stations_;
-  std::unique_ptr<std::vector<RainfallEvent>> events_;
+  std::vector < Station >> stations_;
+  std::vector < RainfallEvent >> events_;
 
   void BuildStationCsv() const {
     if (dir_.empty()) {
@@ -44,12 +48,12 @@ class RainBuilder {
       std::stringstream ss(line);
       if (std::getline(ss, id, ',') && std::getline(ss, name, ',') && std::getline(ss, geo_lat, ',') &&
           std::getline(ss, geo_long, ',')) {
-        stations_->emplace_back(id, name, geo_lat, geo_long);
+        stations_.emplace_back(id, name, geo_lat, geo_long);
       }
     }
   }
 
-  void BuildRainCsv() const {
+  void BuildRainCsv(std::size_t time_interval_s) const {
     if (dir_.empty()) {
       throw std::runtime_error("RainBuilder: model directory not set");
     }
@@ -73,7 +77,7 @@ class RainBuilder {
     std::vector<int> col_to_station_idx(headers.size(), -1);
     for (std::size_t col = 2; col < headers.size(); ++col) {
       for (std::size_t si = 0; si < stations_->size(); ++si) {
-        if ((*stations_)[si].name_ == headers[col]) {
+        if ((stations_)[si].name_ == headers[col]) {
           col_to_station_idx[col] = static_cast<int>(si);
           break;
         }
@@ -82,8 +86,7 @@ class RainBuilder {
 
     RainfallEvent<T, kstation_cnt> event;
     event.duration_ = 0;
-    event.time_interval_s_ = 3600;  // 1-hour interval
-
+    event.time_interval_s_ = time_interval_s;
     while (std::getline(file, line)) {
       std::stringstream ss(line);
       std::string value;
@@ -103,6 +106,6 @@ class RainBuilder {
       ++event.duration_;
     }
 
-    events_->push_back(std::move(event));
+    events_.push_back(std::move(event));
   }
 };
