@@ -38,6 +38,7 @@ struct ConstRaster {
   std::vector<char> active;
 
   const ConstParam<T>& operator[](std::size_t idx) const { return (*cells)[idx]; }
+  std::vector&& BuildOrder();
 };
 template <typename T>
 struct StateRaster {

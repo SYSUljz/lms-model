@@ -8,6 +8,8 @@
 
 #include <array>
 #include <filesystem>
+#include <queue>
+#include <stack>
 #include <stdexcept>
 #include <string>
 
@@ -201,12 +203,79 @@ class ModelBuilder {
           break;  // NE
       }
 
-      if (nx < 0 || nx >= width || ny < 0 || ny >= height || d8.data[nx + width * ny] == d8.nodata) {
+      if (nx < 0 || nx >= width || ny < 0 || ny >= height || d8.is_nodata_at(nx + width * ny)) {
         outlets.push_back(i);
       }
     }
 
-    return outlets;
+    if (outlets.size() > 1) {
+      throw std::runtime_error("BuildOrder: more than one outlet found");
+    }
+
+    std::vector<int> order;
+    if (outlets.empty()) {
+      return order;
+    }
+
+    // Map a neighbour offset (dx, dy) to the D8 value that would cause that
+    // neighbour to flow INTO the current cell.  Index: [dy+1][dx+1].
+    // e.g. neighbour at (dx=-1, dy=-1) — upper-left — flows into us iff its
+    // D8 == 2 (SE); neighbour at (dx=+1, dy=0) — right — flows in iff D8 == 16 (W).
+    static const int up_d8[3][3] = {
+        {2,  4,  8},     // dy=-1  (upper-left, above, upper-right)
+        {1,  0,  16},    // dy= 0  (left,      self,  right)
+        {128, 64, 32}    // dy=+1  (lower-left, below, lower-right)
+    };
+
+    // BFS upstream from the single outlet.
+    // Push every visited cell onto a stack; popping yields upstream→downstream
+    // order so that all inflows to a cell are computed before the cell itself.
+    std::queue<int> q;
+    std::vector<bool> visited(d8.data.size(), false);
+    std::stack<int> stk;
+
+    q.push(outlets[0]);
+    visited[outlets[0]] = true;
+
+    while (!q.empty()) {
+      int front = q.front();
+      stk.push(front);
+      q.pop();
+
+      int x = front % width;
+      int y = front / width;
+
+      // Examine all 8 neighbours; if a neighbour's D8 direction points INTO
+      // (x, y), that neighbour is immediately upstream and gets enqueued.
+      for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+          if (dx == 0 && dy == 0) continue;
+
+          int nx = x + dx;
+          int ny = y + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+
+          int nidx = nx + width * ny;
+          if (visited[nidx]) continue;
+          if (d8.is_nodata_at(nidx)) continue;
+
+          int ndir = static_cast<int>(d8.data[nidx]);
+          if (ndir != up_d8[dy + 1][dx + 1]) continue;
+
+          visited[nidx] = true;
+          q.push(nidx);
+        }
+      }
+    }
+
+    // Pop from stack: most-upstream cells first, outlet last.
+    order.reserve(stk.size());
+    while (!stk.empty()) {
+      order.push_back(stk.top());
+      stk.pop();
+    }
+
+    return order;
   }
   model<T> BuildModel() {}
 
