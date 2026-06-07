@@ -152,7 +152,7 @@ class ModelBuilder {
 
     return out;
   }
-  [[nodiscard]] std::vector<int> BuildOrder() {
+  [[nodiscard]] std::vector<int>&& BuildOrder() {
     auto load = [&](const char* name) { return ReadBand<T>((dir_ / name).string()); };
     Raster<int> d8 = load("d8.tif");
     auto width = d8.width;
@@ -222,9 +222,9 @@ class ModelBuilder {
     // e.g. neighbour at (dx=-1, dy=-1) — upper-left — flows into us iff its
     // D8 == 2 (SE); neighbour at (dx=+1, dy=0) — right — flows in iff D8 == 16 (W).
     static const int up_d8[3][3] = {
-        {2,  4,  8},     // dy=-1  (upper-left, above, upper-right)
-        {1,  0,  16},    // dy= 0  (left,      self,  right)
-        {128, 64, 32}    // dy=+1  (lower-left, below, lower-right)
+        {2, 4, 8},     // dy=-1  (upper-left, above, upper-right)
+        {1, 0, 16},    // dy= 0  (left,      self,  right)
+        {128, 64, 32}  // dy=+1  (lower-left, below, lower-right)
     };
 
     // BFS upstream from the single outlet.
@@ -275,8 +275,71 @@ class ModelBuilder {
       stk.pop();
     }
 
-    return order;
+    return std::move(order);
   }
+
+  [[nodiscard]] std::vector<std::optional<int>>&& BuildTarget(std::vector<int> order) {
+    auto load = [&](const char* name) { return ReadBand<T>((dir_ / name).string()); };
+    Raster<int> d8 = load("d8.tif");
+    auto width = d8.width;
+    auto height = d8.height;
+
+    std::vector<std::optional<int>> target(d8.data.size(), std::nullopt);
+
+    for (int i : order) {
+      int dir = static_cast<int>(d8.data[i]);
+
+      // Outlet cell: invalid direction — no downstream target
+      if (dir != 1 && dir != 2 && dir != 4 && dir != 8 && dir != 16 && dir != 32 &&
+          dir != 64 && dir != 128) {
+        continue;
+      }
+
+      int x = i % width;
+      int y = i / width;
+      int nx = x, ny = y;
+
+      switch (dir) {
+        case 1:
+          nx++;
+          break;  // E
+        case 2:
+          nx++;
+          ny++;
+          break;  // SE
+        case 4:
+          ny++;
+          break;  // S
+        case 8:
+          nx--;
+          ny++;
+          break;  // SW
+        case 16:
+          nx--;
+          break;  // W
+        case 32:
+          nx--;
+          ny--;
+          break;  // NW
+        case 64:
+          ny--;
+          break;  // N
+        case 128:
+          nx++;
+          ny--;
+          break;  // NE
+      }
+
+      // Downstream neighbour valid → record target; otherwise stays nullopt (outlet)
+      if (nx >= 0 && nx < width && ny >= 0 && ny < height &&
+          !d8.is_nodata_at(nx + width * ny)) {
+        target[i] = nx + width * ny;
+      }
+    }
+
+    return std::move(target);
+  }
+
   model<T> BuildModel() {}
 
  private:
