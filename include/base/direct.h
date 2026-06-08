@@ -1,5 +1,5 @@
 #pragma once
-namespace lxh {
+namespace lms {
 namespace direct {
 enum class Direct8 { Right, DownRight, Down, DownLeft, Left, UpLeft, Up, UpRight };
 
@@ -16,4 +16,4 @@ constexpr T GetDirectFactor(Direct8 direct) {
   }
 }
 }  // namespace direct
-}  // namespace lxh
+}  // namespace lms

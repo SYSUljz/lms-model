@@ -1,7 +1,6 @@
 #include <cmath>
 
-#include "model.cpp"
-#include "utils.cpp"
+#include "../utils.hpp"
 template <typename T>
 T GetStepInFlow(StateParam<T>& state_param_loc, const ConstParam<T>& const_param_loc, T rainfall,
                 const ModelMeta& meta_data, const GlobalParam<T>& global_param) {}

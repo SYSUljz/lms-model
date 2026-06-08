@@ -1,7 +1,7 @@
 #include <base/rain.h>
-namespace lxh {
+namespace lms {
 namespace rain {
-using lxh::core::ModelMeta;
+using lms::core::ModelMeta;
 template <typename T>
 void Station::GeoPis2RasterPos(const ModelMeta<T>& meta) {
   raster_x_ = static_cast<size_t>(
@@ -10,4 +10,4 @@ void Station::GeoPis2RasterPos(const ModelMeta<T>& meta) {
       std::round((geo_lat_ - meta.raster_min_lat_) / (meta.raster_max_lat_ - meta.raster_min_lat_) * meta.heigh_));
 }
 }  // namespace rain
-}  // namespace lxh
+}  // namespace lms

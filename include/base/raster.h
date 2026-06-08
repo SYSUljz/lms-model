@@ -6,6 +6,10 @@
 #include "base/core.h"
 namespace lms {
 namespace raster {
+
+using lms::core::Label;
+using lms::direct::Direct8;
+
 /// A single 2D raster band loaded into memory (row-major).
 /// Decoupled from GDAL: any reader can populate this.
 template <typename T>
@@ -58,5 +62,56 @@ struct StateRaster {
 
   StateParam<T>& operator[](std::size_t idx) const { return (*cells)[idx]; }
 };
+
+// ---------------------------------------------------------------------------
+// Raster-value -> enum decoders. These encode domain assumptions about how the
+// Meizhou tiles are coded; verify them against the histograms printed by main.
+// ---------------------------------------------------------------------------
+
+/// label.tif encoding (assumed): 1=Soil, 2=Channel, 3=Reservoir,
+/// 4=Channel(outlet). NOTE: label.tif here ranges 1..4 while Label has 3
+/// categories — value 4 is provisionally folded into Channel. Confirm via the
+/// raw-value histogram.
+inline Label LabelFromRaster(double v) {
+  switch (static_cast<int>(v)) {
+    case 1:
+      return Label::Soil;
+    case 2:
+      return Label::Channel;
+    case 3:
+      return Label::Reservoir;
+    case 4:
+      return Label::Channel;
+    default:
+      return Label::Soil;
+  }
+}
+
+/// ESRI D8 encoding: powers of two clockwise from East.
+/// 1=E, 2=SE, 4=S, 8=SW, 16=W, 32=NW, 64=N, 128=NE — which maps to Direct8 by
+/// log2.
+inline Direct8 D8FromRaster(double v) {
+  switch (static_cast<int>(v)) {
+    case 1:
+      return Direct8::Right;
+    case 2:
+      return Direct8::DownRight;
+    case 4:
+      return Direct8::Down;
+    case 8:
+      return Direct8::DownLeft;
+    case 16:
+      return Direct8::Left;
+    case 32:
+      return Direct8::UpLeft;
+    case 64:
+      return Direct8::Up;
+    case 128:
+      return Direct8::UpRight;
+    default:
+      // NoData, sink, or outlet with no defined direction
+      return Direct8::Right;
+  }
+}
 }  // namespace raster
 }  // namespace lms

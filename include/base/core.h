@@ -3,7 +3,7 @@
 
 #include "direct.h"
 
-namespace lxh {
+namespace lms {
 namespace core {
 enum class Label { Soil, Channel, Reservoir };
 
@@ -97,4 +97,4 @@ struct StateParam {
   T lateral_in_flow_mm {0};
 };
 }  // namespace core
-}  // namespace lxh
+}  // namespace lms

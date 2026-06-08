@@ -12,8 +12,10 @@ endif()
 # GDAL ships a CMake package config (GDALConfig.cmake) exposing the GDAL::GDAL
 # target, which carries include dirs + link libs automatically.
 find_package(GDAL CONFIG REQUIRED)
-
+file(GLOB_RECURSE LMS_SOURCES "${CMAKE_SOURCE_DIR}/src/*.cpp")
+add_library(lms_engine_lib ${LMS_SOURCES})
+target_include_directories(lms_engine_lib PRIVATE ${CMAKE_SOURCE_DIR}/include)
 # I/O smoke test: read the model tiles and print a summary.
-add_executable(lms_io_test src/main.cpp)
-target_include_directories(lms_io_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(lms_io_test PRIVATE GDAL::GDAL)
+add_executable(lms_engine test/main.cpp)
+
+target_link_libraries(lms_engine PRIVATE GDAL::GDAL lms_engine_lib)

@@ -10,10 +10,10 @@
 #include <optional>
 #include <string>
 
-#include "raster_builder.cpp"
-
+#include "base/model.h"
 using T = double;
-
+using lms::base::raster;
+using lms::core::Label;
 static const char* LabelName(Label l) {
   switch (l) {
     case Label::Soil:

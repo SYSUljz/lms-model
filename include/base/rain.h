@@ -2,7 +2,7 @@
 #include <string>
 
 #include "base/core.h"
-namespace lxh {
+namespace lms {
 namespace rain {
 template <typename T>
 class Station {
@@ -30,4 +30,4 @@ class RainfallEvent {
 };
 
 }  // namespace rain
-}  // namespace lxh
+}  // namespace lms

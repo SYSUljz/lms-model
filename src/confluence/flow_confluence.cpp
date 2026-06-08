@@ -1,6 +1,6 @@
-#include "direct.h"
-#include "src/base/core.h"
-#include "utils.cpp"
+#include "base/core.h"
+#include "base/direct.h"
+#include "../utils.hpp"
 template <typename T>
 void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>& const_param_loc,
                             StateParam<T>& target_state, T rainfall, const ModelMeta& meta_data,

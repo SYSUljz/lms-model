@@ -18,57 +18,6 @@
 #include "base/raster.h"
 #include "io/gdal_reader.h"
 
-// ---------------------------------------------------------------------------
-// Raster-value -> enum decoders. These encode domain assumptions about how the
-// Meizhou tiles are coded; verify them against the histograms printed by main.
-// ---------------------------------------------------------------------------
-
-/// label.tif encoding (assumed): 1=Soil, 2=Channel, 3=Reservoir,
-/// 4=Channel(outlet). NOTE: label.tif here ranges 1..4 while Label has 3
-/// categories — value 4 is provisionally folded into Channel. Confirm via the
-/// raw-value histogram.
-inline Label LabelFromRaster(double v) {
-  switch (static_cast<int>(v)) {
-    case 1:
-      return Label::Soil;
-    case 2:
-      return Label::Channel;
-    case 3:
-      return Label::Reservoir;
-    case 4:
-      return Label::Channel;
-    default:
-      return Label::Soil;
-  }
-}
-
-/// ESRI D8 encoding: powers of two clockwise from East.
-/// 1=E, 2=SE, 4=S, 8=SW, 16=W, 32=NW, 64=N, 128=NE — which maps to Direct8 by
-/// log2.
-inline Direct8 D8FromRaster(double v) {
-  switch (static_cast<int>(v)) {
-    case 1:
-      return Direct8::Right;
-    case 2:
-      return Direct8::DownRight;
-    case 4:
-      return Direct8::Down;
-    case 8:
-      return Direct8::DownLeft;
-    case 16:
-      return Direct8::Left;
-    case 32:
-      return Direct8::UpLeft;
-    case 64:
-      return Direct8::Up;
-    case 128:
-      return Direct8::UpRight;
-    default:
-      // NoData, sink, or outlet with no defined direction
-      return Direct8::Right;
-  }
-}
-
 template <typename T>
 class ModelBuilder {
   std::filesystem::path dir_;
@@ -290,8 +239,7 @@ class ModelBuilder {
       int dir = static_cast<int>(d8.data[i]);
 
       // Outlet cell: invalid direction — no downstream target
-      if (dir != 1 && dir != 2 && dir != 4 && dir != 8 && dir != 16 && dir != 32 &&
-          dir != 64 && dir != 128) {
+      if (dir != 1 && dir != 2 && dir != 4 && dir != 8 && dir != 16 && dir != 32 && dir != 64 && dir != 128) {
         continue;
       }
 
@@ -331,8 +279,7 @@ class ModelBuilder {
       }
 
       // Downstream neighbour valid → record target; otherwise stays nullopt (outlet)
-      if (nx >= 0 && nx < width && ny >= 0 && ny < height &&
-          !d8.is_nodata_at(nx + width * ny)) {
+      if (nx >= 0 && nx < width && ny >= 0 && ny < height && !d8.is_nodata_at(nx + width * ny)) {
         target[i] = nx + width * ny;
       }
     }
