@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <optional>
-#include <ranges>
+#include <utility>
 #include <vector>
 
 #include "base/core.h"
@@ -36,7 +36,8 @@ class Model {
 
   // flowGeneration doesn't require child time step iteration
   auto SimulateOneStep(std::vector<T> station_rain) {
-    for (auto& [idx, item] : std::views::enumerate(iter_order_)) {
+    for (std::size_t idx = 0; idx < iter_order_.size(); ++idx) {
+      auto item = iter_order_[idx];
       int target_idx = target_idx_[idx];
       // TODO: map cell to station for correct rainfall index
       FlowGeneration(state_param_[item], const_param_[item],
@@ -88,7 +89,8 @@ class Model {
 
   auto FlowConfluenceMultiStep() {
     for (int i = 0; i < model_meta_.confluence_steps_; ++i) {
-      for (auto& [idx, item] : std::views::enumerate(iter_order_)) {
+      for (std::size_t idx = 0; idx < iter_order_.size(); ++idx) {
+        auto item = iter_order_[idx];
         if (target_idx_[idx].has_value()) [[likely]] {
           FlowConfluenceStepOnce(
               state_param_[item], const_param_[item],

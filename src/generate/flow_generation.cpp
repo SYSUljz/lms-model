@@ -1,20 +1,30 @@
 #include <cmath>
 
+#include "base/core.h"
+#include "base/direct.h"
 #include "../utils.hpp"
+
+using lms::core::StateParam;
+using lms::core::ConstParam;
+using lms::core::ModelMeta;
+using lms::core::GlobalParam;
+using lms::core::Label;
+using lms::direct::GetDirectFactor;
+
 template <typename T>
 T GetStepInFlow(StateParam<T>& state_param_loc, const ConstParam<T>& const_param_loc, T rainfall,
-                const ModelMeta& meta_data, const GlobalParam<T>& global_param) {}
+                const ModelMeta<T>& meta_data, const GlobalParam<T>& global_param) { return T{}; }
 
 template <typename T>
 void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_param_loc, StateParam<T>& target_state,
-                    T rainfall, const ModelMeta& meta_data, const GlobalParam<T>& global_param) {
+                    T rainfall, const ModelMeta<T>& meta_data, const GlobalParam<T>& global_param) {
   // calculate flow generate in soil cell
   if (const_param_loc.label == Label::Soil) {
     auto sat = const_param_loc.sat;
     auto fc = const_param_loc.fc;
     auto soil_moisture = const_param_loc.soil_moisture;
     auto slop = const_param_loc.slop;
-    auto ks = const_param_loc.ks * time_interval;
+    auto ks = const_param_loc.ks * meta_data.time_interval_s_;
     auto b = const_param_loc.b;
     auto k = GetK(soil_moisture, sat, b, ks);
     auto zs = const_param_loc.zs;
@@ -28,17 +38,19 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
     if (soil_moisture > fc) {
       state_param_loc.actual_evaporate = ep * v;
     } else if (soil_moisture > const_param_loc.wl) {
-      state_param_loc.actual_evaporate = (1 - v) * Ep * (curr - const_param_loc.wl) / (fc - const_param_loc.wl);
+      state_param_loc.actual_evaporate = (1 - v) * ep * (soil_moisture - const_param_loc.wl) / (fc - const_param_loc.wl);
     } else {
       state_param_loc.actual_evaporate = 0;
     }
     // calculate produce runoff
+    T percolate_out_q = 0;
+    T lateral_out_q = 0;
     if (soil_moisture > fc) {
       // Percolate out quantity
-      auto percolate_out_q = 0.001 * (k + state_param_loc.per_mm) / 2 * cell_size * cell_size;
-      auto lateral_out_q =
+      percolate_out_q = 0.001 * (k + state_param_loc.per_mm) / 2 * cell_size * cell_size;
+      lateral_out_q =
           0.001 * (k * slop + state_param_loc.lateral_in_flow_mm) / 2 * direct_factor * cell_size * zs * 0.001;
-      auto excess_q = 0.001 * zs * (cur - fc) * cell_size * cell_size;
+      auto excess_q = 0.001 * zs * (soil_moisture - fc) * cell_size * cell_size;
       if (percolate_out_q + lateral_out_q > excess_q) {
         percolate_out_q = excess_q * percolate_out_q / (percolate_out_q + lateral_out_q);
         lateral_out_q = excess_q - percolate_out_q;
@@ -70,14 +82,9 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
   else {
     auto depth = rainfall - state_param_loc.actual_evaporate;
     if (depth > 0) {
-      state_param_loc.runoff.= depth;
+      state_param_loc.runoff += depth;
     } else {
-      depth = rainfall - state_param_loc.actual_evaporate;
-      if (depth > 0) {
-        state_param_loc.runoff = depth;
-      } else {
-        state_param_loc.actual_evaporate = rainfall;
-      }
+      state_param_loc.actual_evaporate = rainfall;
     }
   }
 }

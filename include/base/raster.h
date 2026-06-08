@@ -8,6 +8,9 @@ namespace lms {
 namespace raster {
 
 using lms::core::Label;
+using lms::core::ModelMeta;
+using lms::core::ConstParam;
+using lms::core::StateParam;
 using lms::direct::Direct8;
 
 /// A single 2D raster band loaded into memory (row-major).
@@ -35,27 +38,27 @@ struct Raster {
 /// grid metadata and an active mask (cells inside the basin / not NoData).
 template <typename T>
 struct ConstRaster {
-  ModelMeta meta {};
+  ModelMeta<T> meta {};
   // row-major, size == meta.width_ * meta.heigh_
   std::unique_ptr<std::vector<ConstParam<T>>> cells;
   // 1 if the cell is inside the basin (label is not NoData), else 0
   std::vector<char> active;
 
   const ConstParam<T>& operator[](std::size_t idx) const { return (*cells)[idx]; }
-  std::vector&& BuildOrder();
+  std::vector<int>&& BuildOrder();
 };
 template <typename T>
 struct StateRaster {
-  ModelMeta meta_;
+  ModelMeta<T> meta_;
   // row-major, size == meta.width_ * meta.heigh_
   std::unique_ptr<std::vector<StateParam<T>>> cells;
   // 1 if the cell is inside the basin (label is not NoData), else 0
   std::shared_ptr<std::vector<char>> active_;
 
-  StateRaster(ModelMeta meta, std::shared_ptr<std::vector<char>> active)
-      : meta_(meta), active_(active), cells(std::nullptr_t) {
+  StateRaster(ModelMeta<T> meta, std::shared_ptr<std::vector<char>> active)
+      : meta_(meta), active_(active) {
     std::size_t n_cells = meta_.width_ * meta_.heigh_;
-    cells.reset(new std::vector<StateParam<T>>(n_cells));
+    cells = std::make_unique<std::vector<StateParam<T>>>(n_cells);
   };
   StateRaster(const StateRaster& stateraster) = delete;
   StateRaster& operator=(const StateRaster& stateraster) = delete;

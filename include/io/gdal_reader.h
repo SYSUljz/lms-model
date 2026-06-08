@@ -9,6 +9,8 @@
 #include "cpl_conv.h"
 #include "gdal_priv.h"
 
+using lms::raster::Raster;
+
 /// Register GDAL drivers exactly once per process.
 inline void EnsureGdalRegistered() {
   static const bool done = [] {

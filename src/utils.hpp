@@ -44,6 +44,8 @@ T GetChannelAlpha(T manning, T cell_size, T slope) {
 ///
 template <typename T>
 T SolveSaintVenant(T iQ, T q, T alpha, T beta, T dT, T dX, T iQPrevX, T iQPrevT) {
+  T dff = iQ;
+  T duu;
   int cnt = 0;
   while (cnt < 20) {
     cnt++;
@@ -51,6 +53,7 @@ T SolveSaintVenant(T iQ, T q, T alpha, T beta, T dT, T dX, T iQPrevX, T iQPrevT)
         iQ * dT / dX + alpha * std::pow(iQ, beta) - iQPrevX * dT / dX - alpha * std::pow(iQPrevT, beta) - q * dT;
     duu = dT / dX + alpha * beta * std::pow(iQ, beta - 1);
 
+    dff = diff;
     dff /= duu;
 
     if (std::abs(dff) < static_cast<T>(1e-6)) {
@@ -63,6 +66,7 @@ T SolveSaintVenant(T iQ, T q, T alpha, T beta, T dT, T dX, T iQPrevX, T iQPrevT)
       iQ = std::abs(iQ);
     }
   }
+  return iQ;
 }
 
 /// calculate Wetted Perimeter

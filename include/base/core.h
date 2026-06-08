@@ -5,6 +5,9 @@
 
 namespace lms {
 namespace core {
+
+using lms::direct::Direct8;
+
 enum class Label { Soil, Channel, Reservoir };
 
 template <typename T>
