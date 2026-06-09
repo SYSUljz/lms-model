@@ -7,6 +7,7 @@
 // runs on its own and you can inspect what was read before the solver exists.
 
 #include <array>
+#include <cstdio>
 #include <filesystem>
 #include <optional>
 #include <queue>
@@ -109,24 +110,28 @@ class ModelBuilder {
 
     return out;
   }
-  [[nodiscard]] std::vector<int>&& BuildOrder() {
+  [[nodiscard]] std::vector<int> BuildOrder() {
     auto load = [&](const char* name) { return ReadBand<T>((dir_ / name).string()); };
-    Raster<int> d8 = load("d8.tif");
+    auto d8 = load("d8.tif");
     auto width = d8.width;
     auto height = d8.height;
 
     std::vector<int> outlets;
 
     for (size_t i = 0; i < d8.data.size(); ++i) {
-      int dir = d8.data[i];
+      // Skip NoData cells — they are outside the basin.
+      if (d8.is_nodata_at(i)) continue;
 
+      int dir = static_cast<int>(d8.data[i]);
+
+      // Sink: cell inside basin with no valid D8 flow direction.
       if (dir != 1 && dir != 2 && dir != 4 && dir != 8 && dir != 16 && dir != 32 && dir != 64 && dir != 128) {
-        outlets.push_back(i);
+        outlets.push_back(static_cast<int>(i));
         continue;
       }
 
-      int x = i % width;
-      int y = i / width;
+      int x = static_cast<int>(i) % width;
+      int y = static_cast<int>(i) / width;
       int nx = x, ny = y;
 
       switch (dir) {
@@ -140,18 +145,26 @@ class ModelBuilder {
         case 128:nx++; ny--; break;  // NE
       }
 
+      // Outlet: flows outside grid or into a NoData cell.
       if (nx < 0 || nx >= width || ny < 0 || ny >= height || d8.is_nodata_at(nx + width * ny)) {
-        outlets.push_back(i);
+        outlets.push_back(static_cast<int>(i));
       }
     }
 
-    if (outlets.size() > 1) {
-      throw std::runtime_error("BuildOrder: more than one outlet found");
+    std::printf("BuildOrder: %zu outlet(s) found\n", outlets.size());
+    const std::size_t max_show = 20;
+    for (std::size_t oi = 0; oi < std::min(outlets.size(), max_show); ++oi) {
+      int o = outlets[oi];
+      std::printf("  outlet[%zu]: idx=%d  (col=%d, row=%d)\n",
+                  oi, o, o % width, o / width);
+    }
+    if (outlets.size() > max_show) {
+      std::printf("  ... and %zu more\n", outlets.size() - max_show);
     }
 
     std::vector<int> order;
     if (outlets.empty()) {
-      return std::move(order);
+      return order;
     }
 
     // Map a neighbour offset (dx, dy) to the D8 value that would cause that
@@ -162,13 +175,15 @@ class ModelBuilder {
         {128, 64, 32}  // dy=+1  (lower-left, below, lower-right)
     };
 
-    // BFS upstream from the single outlet.
+    // BFS upstream from all outlets simultaneously.
     std::queue<int> q;
     std::vector<bool> visited(d8.data.size(), false);
     std::stack<int> stk;
 
-    q.push(outlets[0]);
-    visited[outlets[0]] = true;
+    for (int o : outlets) {
+      q.push(o);
+      visited[static_cast<std::size_t>(o)] = true;
+    }
 
     while (!q.empty()) {
       int front = q.front();
@@ -205,12 +220,12 @@ class ModelBuilder {
       stk.pop();
     }
 
-    return std::move(order);
+    return order;
   }
 
-  [[nodiscard]] std::vector<std::optional<int>>&& BuildTarget(std::vector<int> order) {
+  [[nodiscard]] std::vector<std::optional<int>> BuildTarget(std::vector<int> order) {
     auto load = [&](const char* name) { return ReadBand<T>((dir_ / name).string()); };
-    Raster<int> d8 = load("d8.tif");
+    auto d8 = load("d8.tif");
     auto width = d8.width;
     auto height = d8.height;
 
@@ -243,7 +258,16 @@ class ModelBuilder {
       }
     }
 
-    return std::move(target);
+    return target;
+  }
+
+  /// Build a StateRaster from an already-built ConstRaster.
+  /// The active mask is shared between the two rasters (via shared_ptr),
+  /// so changes to one raster's mask are visible to the other.
+  /// All StateParam fields are default-initialized to zero.
+  StateRaster<T> BuildStateRaster(const ConstRaster<T>& const_raster) const {
+    auto active_ptr = std::make_shared<std::vector<char>>(const_raster.active);
+    return StateRaster<T>(const_raster.meta, std::move(active_ptr));
   }
 
   // TODO: implement BuildModel

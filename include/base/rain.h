@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -24,7 +25,16 @@ class Station {
 
   Station(size_t id, T geo_lat, T geo_long, std::string name, const ModelMeta<T>& meta)
       : id_(id), geo_lat_(geo_lat), geo_long_(geo_long), name_(std::move(name)) {}
-  void GeoPos2RasterPos(const ModelMeta<T>& meta);
+  void GeoPos2RasterPos(const ModelMeta<T>& meta) {
+    raster_x_ = static_cast<size_t>(std::round(
+        (static_cast<double>(geo_long_) - static_cast<double>(meta.raster_min_long_)) /
+        (static_cast<double>(meta.raster_max_long_) - static_cast<double>(meta.raster_min_long_)) *
+        static_cast<double>(meta.width_)));
+    raster_y_ = static_cast<size_t>(std::round(
+        (static_cast<double>(geo_lat_) - static_cast<double>(meta.raster_min_lat_)) /
+        (static_cast<double>(meta.raster_max_lat_) - static_cast<double>(meta.raster_min_lat_)) *
+        static_cast<double>(meta.heigh_)));
+  }
 };
 
 template <typename T, std::size_t station_cnt>
