@@ -22,7 +22,7 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
   if (const_param_loc.label == Label::Soil) {
     auto sat = const_param_loc.sat;
     auto fc = const_param_loc.fc;
-    auto soil_moisture = const_param_loc.soil_moisture;
+    auto soil_moisture = state_param_loc.soil_moisture;
     auto slop = const_param_loc.slop;
     auto ks = const_param_loc.ks * meta_data.time_interval_s_;
     auto b = const_param_loc.b;
@@ -32,7 +32,7 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
     auto direct_factor = GetDirectFactor<T>(const_param_loc.d8);
     auto ep = const_param_loc.ep;
     auto v = const_param_loc.v;
-    auto cell_size = meta_data.cell_size_;
+    auto cell_size = static_cast<T>(meta_data.cell_size_);
     auto soil_alpha = global_param.soil_alpha_;
     // calculate evaporation
     if (soil_moisture > fc) {
@@ -88,3 +88,9 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
     }
   }
 }
+
+template void FlowGeneration<double>(StateParam<double>& state_param_loc,
+                                     const ConstParam<double>& const_param_loc,
+                                     StateParam<double>& target_state, double rainfall,
+                                     const ModelMeta<double>& meta_data,
+                                     const GlobalParam<double>& global_param);

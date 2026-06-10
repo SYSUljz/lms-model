@@ -223,18 +223,20 @@ class ModelBuilder {
     return order;
   }
 
-  [[nodiscard]] std::vector<std::optional<int>> BuildTarget(std::vector<int> order) {
+  [[nodiscard]] std::vector<std::optional<int>> BuildTarget(const std::vector<int>& order) {
     auto load = [&](const char* name) { return ReadBand<T>((dir_ / name).string()); };
     auto d8 = load("d8.tif");
     auto width = d8.width;
     auto height = d8.height;
 
-    std::vector<std::optional<int>> target(d8.data.size(), std::nullopt);
+    std::vector<std::optional<int>> targets;
+    targets.reserve(order.size());
 
     for (int i : order) {
       int dir = static_cast<int>(d8.data[i]);
 
       if (dir != 1 && dir != 2 && dir != 4 && dir != 8 && dir != 16 && dir != 32 && dir != 64 && dir != 128) {
+        targets.push_back(std::nullopt);
         continue;
       }
 
@@ -254,11 +256,13 @@ class ModelBuilder {
       }
 
       if (nx >= 0 && nx < width && ny >= 0 && ny < height && !d8.is_nodata_at(nx + width * ny)) {
-        target[i] = nx + width * ny;
+        targets.push_back(nx + width * ny);
+      } else {
+        targets.push_back(std::nullopt);
       }
     }
 
-    return target;
+    return targets;
   }
 
   /// Build a StateRaster from an already-built ConstRaster.
@@ -269,9 +273,6 @@ class ModelBuilder {
     auto active_ptr = std::make_shared<std::vector<char>>(const_raster.active);
     return StateRaster<T>(const_raster.meta, std::move(active_ptr));
   }
-
-  // TODO: implement BuildModel
-  // Model<T> BuildModel() {}
 
  private:
   void BuildStreamOrder() {}

@@ -44,6 +44,12 @@ struct ConstRaster {
   // 1 if the cell is inside the basin (label is not NoData), else 0
   std::vector<char> active;
 
+  ConstRaster() = default;
+  ConstRaster(const ConstRaster&) = delete;
+  ConstRaster& operator=(const ConstRaster&) = delete;
+  ConstRaster(ConstRaster&&) = default;
+  ConstRaster& operator=(ConstRaster&&) = default;
+
   const ConstParam<T>& operator[](std::size_t idx) const { return (*cells)[idx]; }
   std::vector<int>&& BuildOrder();
 };
@@ -62,6 +68,8 @@ struct StateRaster {
   };
   StateRaster(const StateRaster& stateraster) = delete;
   StateRaster& operator=(const StateRaster& stateraster) = delete;
+  StateRaster(StateRaster&&) = default;
+  StateRaster& operator=(StateRaster&&) = default;
 
   StateParam<T>& operator[](std::size_t idx) const { return (*cells)[idx]; }
 };

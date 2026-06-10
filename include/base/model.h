@@ -32,13 +32,30 @@ namespace model {
 template <typename T>
 class Model {
  public:
-  Model() {};
+  Model(lms::raster::StateRaster<T> state_param,
+        lms::raster::ConstRaster<T> const_param,
+        lms::core::ModelMeta<T> model_meta,
+        lms::core::GlobalParam<T> global_param,
+        std::vector<int> iter_order,
+        std::vector<std::optional<int>> target_idx,
+        std::vector<std::vector<T>> rainfall)
+      : state_param_(std::move(state_param)),
+        const_param_(std::move(const_param)),
+        model_meta_(model_meta),
+        global_param_(global_param),
+        iter_order_(std::move(iter_order)),
+        target_idx_(std::move(target_idx)),
+        rainfall_(std::move(rainfall)),
+        rainfall_data_length_(static_cast<int>(rainfall_.size())) {}
 
   // flowGeneration doesn't require child time step iteration
   auto SimulateOneStep(std::vector<T> station_rain) {
     for (std::size_t idx = 0; idx < iter_order_.size(); ++idx) {
       auto item = iter_order_[idx];
-      int target_idx = target_idx_[idx];
+      auto target_opt = target_idx_[idx];
+      if (!target_opt.has_value()) continue;
+      
+      int target_idx = *target_opt;
       // TODO: map cell to station for correct rainfall index
       FlowGeneration(state_param_[item], const_param_[item],
                      state_param_[target_idx],
@@ -50,9 +67,6 @@ class Model {
   }
 
   auto Simulate() {
-    // NOTE: StateRaster copy is deleted; using reference as a workaround.
-    // A proper deep-copy / clone method is needed on StateRaster.
-    auto& temp_state_param_ = state_param_;
     for (auto& item : rainfall_) {
       SimulateOneStep(item);
     }
@@ -68,6 +82,8 @@ class Model {
   bool BuildRain() { return false; }
 
   int GetTargetIdx(int this_idx) { return 0; }
+  
+  const lms::raster::StateRaster<T>& state_param() const { return state_param_; }
 
  private:
   lms::raster::StateRaster<T> state_param_;

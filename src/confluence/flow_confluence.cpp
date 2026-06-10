@@ -15,7 +15,7 @@ void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>&
                             const GlobalParam<T>& global_param) {
   auto cell_size = meta_data.cell_size_;
   auto steps = meta_data.confluence_steps_;
-  auto dt = meta_data.runoff_dt_s_;
+  auto dt = static_cast<T>(meta_data.runoff_dt_s_);
   auto alpha = GetSoilAlpha<T>(const_param_loc.n, cell_size, const_param_loc.slop);
   auto beta = static_cast<T>(0.6);
   auto dx = GetDirectFactor<T>(const_param_loc.d8) * cell_size;
@@ -56,3 +56,9 @@ void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>&
     target_state.upstream_in_flow += state_param_loc.prev_t_flow;
   }
 }
+
+template void FlowConfluenceStepOnce<double>(StateParam<double>& state_param_loc,
+                                             const ConstParam<double>& const_param_loc,
+                                             StateParam<double>& target_state, double rainfall,
+                                             const ModelMeta<double>& meta_data,
+                                             const GlobalParam<double>& global_param);
