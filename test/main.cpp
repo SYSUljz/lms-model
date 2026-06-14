@@ -79,13 +79,13 @@ int main(int argc, char** argv) {
     global_param.manning = 0.03;
 
     lms::model::Model<T> model(std::move(sr), std::move(cr), meta, global_param, std::move(order), std::move(targets),
-                               std::move(rainfall_matrix));
+                               std::move(rainfall_matrix), rain_builder.stations());
 
     std::printf("Model assembled successfully.\n");
-
+    model.BuildStationID();
     // 4. Run Simulation
     std::printf("Starting simulation...\n");
-    model.Simulate();
+    model.SimulateAll();
     std::printf("Simulation completed.\n");
 
     // 5. Verify results (simple check)

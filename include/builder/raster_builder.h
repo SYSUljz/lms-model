@@ -20,12 +20,12 @@
 #include "base/raster.h"
 #include "io/gdal_reader.h"
 
-using lms::raster::Raster;
-using lms::raster::ConstRaster;
-using lms::raster::StateRaster;
-using lms::raster::LabelFromRaster;
-using lms::raster::D8FromRaster;
 using lms::core::ConstParam;
+using lms::raster::ConstRaster;
+using lms::raster::D8FromRaster;
+using lms::raster::LabelFromRaster;
+using lms::raster::Raster;
+using lms::raster::StateRaster;
 
 template <typename T>
 class ModelBuilder {
@@ -135,14 +135,34 @@ class ModelBuilder {
       int nx = x, ny = y;
 
       switch (dir) {
-        case 1:  nx++;       break;  // E
-        case 2:  nx++; ny++; break;  // SE
-        case 4:  ny++;       break;  // S
-        case 8:  nx--; ny++; break;  // SW
-        case 16: nx--;       break;  // W
-        case 32: nx--; ny--; break;  // NW
-        case 64: ny--;       break;  // N
-        case 128:nx++; ny--; break;  // NE
+        case 1:
+          nx++;
+          break;  // E
+        case 2:
+          nx++;
+          ny++;
+          break;  // SE
+        case 4:
+          ny++;
+          break;  // S
+        case 8:
+          nx--;
+          ny++;
+          break;  // SW
+        case 16:
+          nx--;
+          break;  // W
+        case 32:
+          nx--;
+          ny--;
+          break;  // NW
+        case 64:
+          ny--;
+          break;  // N
+        case 128:
+          nx++;
+          ny--;
+          break;  // NE
       }
 
       // Outlet: flows outside grid or into a NoData cell.
@@ -155,8 +175,7 @@ class ModelBuilder {
     const std::size_t max_show = 20;
     for (std::size_t oi = 0; oi < std::min(outlets.size(), max_show); ++oi) {
       int o = outlets[oi];
-      std::printf("  outlet[%zu]: idx=%d  (col=%d, row=%d)\n",
-                  oi, o, o % width, o / width);
+      std::printf("  outlet[%zu]: idx=%d  (col=%d, row=%d)\n", oi, o, o % width, o / width);
     }
     if (outlets.size() > max_show) {
       std::printf("  ... and %zu more\n", outlets.size() - max_show);
@@ -245,14 +264,34 @@ class ModelBuilder {
       int nx = x, ny = y;
 
       switch (dir) {
-        case 1:  nx++;       break;  // E
-        case 2:  nx++; ny++; break;  // SE
-        case 4:  ny++;       break;  // S
-        case 8:  nx--; ny++; break;  // SW
-        case 16: nx--;       break;  // W
-        case 32: nx--; ny--; break;  // NW
-        case 64: ny--;       break;  // N
-        case 128:nx++; ny--; break;  // NE
+        case 1:
+          nx++;
+          break;  // E
+        case 2:
+          nx++;
+          ny++;
+          break;  // SE
+        case 4:
+          ny++;
+          break;  // S
+        case 8:
+          nx--;
+          ny++;
+          break;  // SW
+        case 16:
+          nx--;
+          break;  // W
+        case 32:
+          nx--;
+          ny--;
+          break;  // NW
+        case 64:
+          ny--;
+          break;  // N
+        case 128:
+          nx++;
+          ny--;
+          break;  // NE
       }
 
       if (nx >= 0 && nx < width && ny >= 0 && ny < height && !d8.is_nodata_at(nx + width * ny)) {

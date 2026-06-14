@@ -16,7 +16,6 @@ template <typename T>
 class Station {
  public:
   std::size_t id_;
-  std::size_t idx_ {};
   T geo_lat_;
   T geo_long_;
   std::size_t raster_x_ {0};
@@ -26,14 +25,14 @@ class Station {
   Station(size_t id, T geo_lat, T geo_long, std::string name, const ModelMeta<T>& meta)
       : id_(id), geo_lat_(geo_lat), geo_long_(geo_long), name_(std::move(name)) {}
   void GeoPos2RasterPos(const ModelMeta<T>& meta) {
-    raster_x_ = static_cast<size_t>(std::round(
-        (static_cast<double>(geo_long_) - static_cast<double>(meta.raster_min_long_)) /
-        (static_cast<double>(meta.raster_max_long_) - static_cast<double>(meta.raster_min_long_)) *
-        static_cast<double>(meta.width_)));
-    raster_y_ = static_cast<size_t>(std::round(
-        (static_cast<double>(geo_lat_) - static_cast<double>(meta.raster_min_lat_)) /
-        (static_cast<double>(meta.raster_max_lat_) - static_cast<double>(meta.raster_min_lat_)) *
-        static_cast<double>(meta.heigh_)));
+    raster_x_ = static_cast<size_t>(
+        std::round((static_cast<double>(geo_long_) - static_cast<double>(meta.raster_min_long_)) /
+                   (static_cast<double>(meta.raster_max_long_) - static_cast<double>(meta.raster_min_long_)) *
+                   static_cast<double>(meta.width_)));
+    raster_y_ = static_cast<size_t>(
+        std::round((static_cast<double>(geo_lat_) - static_cast<double>(meta.raster_min_lat_)) /
+                   (static_cast<double>(meta.raster_max_lat_) - static_cast<double>(meta.raster_min_lat_)) *
+                   static_cast<double>(meta.heigh_)));
   }
 };
 
