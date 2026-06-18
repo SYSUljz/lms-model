@@ -1,19 +1,21 @@
 #include <cmath>
 
+#include "../utils.hpp"
 #include "base/core.h"
 #include "base/direct.h"
-#include "../utils.hpp"
 
-using lms::core::StateParam;
 using lms::core::ConstParam;
-using lms::core::ModelMeta;
 using lms::core::GlobalParam;
 using lms::core::Label;
+using lms::core::ModelMeta;
+using lms::core::StateParam;
 using lms::direct::GetDirectFactor;
 
 template <typename T>
 T GetStepInFlow(StateParam<T>& state_param_loc, const ConstParam<T>& const_param_loc, T rainfall,
-                const ModelMeta<T>& meta_data, const GlobalParam<T>& global_param) { return T{}; }
+                const ModelMeta<T>& meta_data, const GlobalParam<T>& global_param) {
+  return T {};
+}
 
 template <typename T>
 void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_param_loc, StateParam<T>& target_state,
@@ -38,7 +40,8 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
     if (soil_moisture > fc) {
       state_param_loc.actual_evaporate = ep * v;
     } else if (soil_moisture > const_param_loc.wl) {
-      state_param_loc.actual_evaporate = (1 - v) * ep * (soil_moisture - const_param_loc.wl) / (fc - const_param_loc.wl);
+      state_param_loc.actual_evaporate =
+          (1 - v) * ep * (soil_moisture - const_param_loc.wl) / (fc - const_param_loc.wl);
     } else {
       state_param_loc.actual_evaporate = 0;
     }
@@ -89,8 +92,9 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
   }
 }
 
-template void FlowGeneration<double>(StateParam<double>& state_param_loc,
-                                     const ConstParam<double>& const_param_loc,
+template void FlowGeneration<double>(StateParam<double>& state_param_loc, const ConstParam<double>& const_param_loc,
                                      StateParam<double>& target_state, double rainfall,
-                                     const ModelMeta<double>& meta_data,
-                                     const GlobalParam<double>& global_param);
+                                     const ModelMeta<double>& meta_data, const GlobalParam<double>& global_param);
+template void FlowGeneration<float>(StateParam<float>& state_param_loc, const ConstParam<float>& const_param_loc,
+                                    StateParam<float>& target_state, float rainfall, const ModelMeta<float>& meta_data,
+                                    const GlobalParam<float>& global_param);

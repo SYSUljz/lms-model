@@ -249,13 +249,11 @@ class ModelBuilder {
     auto height = d8.height;
 
     std::vector<std::optional<int>> targets;
-    targets.reserve(order.size());
 
     for (int i : order) {
       int dir = static_cast<int>(d8.data[i]);
-
+      // filter out Nodata cells
       if (dir != 1 && dir != 2 && dir != 4 && dir != 8 && dir != 16 && dir != 32 && dir != 64 && dir != 128) {
-        targets.push_back(std::nullopt);
         continue;
       }
 
@@ -297,7 +295,8 @@ class ModelBuilder {
       if (nx >= 0 && nx < width && ny >= 0 && ny < height && !d8.is_nodata_at(nx + width * ny)) {
         targets.push_back(nx + width * ny);
       } else {
-        targets.push_back(std::nullopt);
+        targets.push_back(nx + width * ny);
+        return targets;
       }
     }
 

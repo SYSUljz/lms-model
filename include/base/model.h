@@ -78,7 +78,7 @@ class Model {
   }
 
   // flowGeneration doesn't require child time step iteration
-  auto SimulateOneStep(std::vector<T> station_rain) {
+  void SimulateOneStep(std::vector<T> station_rain) {
     for (std::size_t idx = 0; idx < iter_order_.size(); ++idx) {
       auto item = iter_order_[idx];
       auto target_opt = target_idx_[idx];
@@ -86,12 +86,11 @@ class Model {
 
       int target_idx = *target_opt;
       std::size_t rain_idx = station_id_[idx];
-      // TODO: map cell to station for correct rainfall index
+
       FlowGeneration(state_param_[item], const_param_[item], state_param_[target_idx],
                      station_rain.empty() ? static_cast<T>(0) : station_rain[rain_idx], model_meta_, global_param_);
     }
-
-    return FlowConfluenceMultiStep();
+    results_.push_back(FlowConfluenceMultiStep());
   }
 
   auto SimulateAll() {
@@ -132,8 +131,11 @@ class Model {
   int rainfall_data_length_;
   // station meta_data collection
   std::vector<Station<T>> stations_;
+  // store simulate result
+  std::vector<T> results_;
 
-  auto FlowConfluenceMultiStep() {
+  // return water flow of outlet cell
+  T FlowConfluenceMultiStep() {
     for (int i = 0; i < model_meta_.confluence_steps_; ++i) {
       for (std::size_t idx = 0; idx < iter_order_.size(); ++idx) {
         auto item = iter_order_[idx];
@@ -143,12 +145,12 @@ class Model {
                                  static_cast<T>(0), model_meta_, global_param_);
         } else {
           // todo: find a way to process pourpoint branch
-          return state_param_[idx];
+          return state_param_[idx].upstream_in_flow;
         }
       }
     }
     // TODO: determine proper return value for the normal path
-    return state_param_[0];
+    return state_param_[*target_idx_[iter_order_.size() - 1]].upstream_in_flow;
   }
 };
 
