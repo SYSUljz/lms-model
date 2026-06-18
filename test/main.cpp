@@ -43,8 +43,8 @@ int main(int argc, char** argv) {
     meta.heigh_ = cr.meta.heigh_;
     meta.cell_size_ = cr.meta.cell_size_;
     meta.time_interval_s_ = 3600;  // 1 hour
-    meta.confluence_steps_ = 60;
-    meta.runoff_dt_s_ = 60;
+    meta.confluence_steps_ = 6;
+    meta.runoff_dt_s_ = 600;
     // Bounds for coordinate conversion (placeholder values)
     meta.raster_min_lat_ = 2580000.0;
     meta.raster_max_lat_ = 2610000.0;
@@ -73,10 +73,12 @@ int main(int argc, char** argv) {
 
     // 3. Assemble Model
     lms::core::GlobalParam<T> global_param {};
-    global_param.soil_alpha_ = 0.5;
-    global_param.baseflow_coff = 0.1;
-    global_param.v = 1.0;
-    global_param.manning = 0.03;
+    global_param.soil_alpha_ = 4.0;
+    global_param.baseflow_coff = 0.998;
+    global_param.v = 0.7;
+    global_param.manning = 0.025;
+    global_param.ss = 60.0;
+    global_param.init_soil_water = 0.3;
 
     lms::model::Model<T> model(std::move(sr), std::move(cr), meta, global_param, std::move(order), std::move(targets),
                                std::move(rainfall_matrix), rain_builder.stations());
@@ -89,6 +91,12 @@ int main(int argc, char** argv) {
     std::printf("Simulation completed.\n");
 
     // 5. Verify results (simple check)
+    const auto& results = model.GetResult();
+    std::printf("Simulation Results (outlet flow at each time step):\n");
+    for (std::size_t i = 0; i < results.size(); ++i) {
+      std::printf("  Time step %zu: %g\n", i + 1, results[i] / 3600);
+    }
+
     const auto& final_state = model.state_param();
     double total_runoff = 0;
     for (std::size_t i = 0; i < final_state.meta_.width_ * final_state.meta_.heigh_; ++i) {

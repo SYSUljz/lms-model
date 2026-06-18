@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 
 #include "../utils.hpp"
@@ -26,13 +27,14 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
     auto fc = const_param_loc.fc;
     auto soil_moisture = state_param_loc.soil_moisture;
     auto slop = const_param_loc.slop;
-    auto ks = const_param_loc.ks * meta_data.time_interval_s_;
+    auto ks = const_param_loc.ks * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
     auto b = const_param_loc.b;
     auto k = GetK(soil_moisture, sat, b, ks);
     auto zs = const_param_loc.zs;
     auto lateral_in_q = state_param_loc.lateral_in_flow_mm;
     auto direct_factor = GetDirectFactor<T>(const_param_loc.d8);
-    auto ep = const_param_loc.ep;
+    // ep is stored as mm/h in raster; convert to mm/step (same as ks)
+    auto ep = const_param_loc.ep * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
     auto v = const_param_loc.v;
     auto cell_size = static_cast<T>(meta_data.cell_size_);
     auto soil_alpha = global_param.soil_alpha_;
@@ -49,18 +51,20 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
     T percolate_out_q = 0;
     T lateral_out_q = 0;
     if (soil_moisture > fc) {
-      // Percolate out quantity
+      // Percolate out quantity — matches Java: Qper = 0.001 * (k + per_mm)/2 * L * L
       percolate_out_q = 0.001 * (k + state_param_loc.per_mm) / 2 * cell_size * cell_size;
-      lateral_out_q =
-          0.001 * (k * slop + state_param_loc.lateral_in_flow_mm) / 2 * direct_factor * cell_size * zs * 0.001;
+
+      // Lateral flow — matches Java: Qlat = 0.001 * (k*slp + lat_mm)/2 * D * L * zs * 0.001
+      lateral_out_q = 0.001 * (k * slop + state_param_loc.lat_mm) / 2.0 * direct_factor * cell_size * zs * 0.001;
+
       auto excess_q = 0.001 * zs * (soil_moisture - fc) * cell_size * cell_size;
       if (percolate_out_q + lateral_out_q > excess_q) {
         percolate_out_q = excess_q * percolate_out_q / (percolate_out_q + lateral_out_q);
         lateral_out_q = excess_q - percolate_out_q;
       }
     }
-    auto depth = rainfall - state_param_loc.actual_evaporate +
-                 (lateral_in_q - percolate_out_q - lateral_out_q) / cell_size / cell_size * 1000;
+    auto depth = rainfall - state_param_loc.actual_evaporate + lateral_in_q -
+                 (percolate_out_q + lateral_out_q) / cell_size / cell_size * 1000.0;
     if (depth > k) {
       auto a = (std::exp(soil_alpha * soil_moisture / sat) - 1) / (std::exp(soil_alpha) - 1);
       state_param_loc.runoff += (depth - k) * a;
@@ -70,6 +74,8 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
     // update downstream grid's lateral_in_q_
     target_state.lateral_in_flow_mm += lateral_out_q / cell_size / cell_size * 1000;
     state_param_loc.per_mm = percolate_out_q / cell_size / cell_size * 1000;
+    // Store lateral outflow for next timestep (matching Java: lat_mm[i] = Qlat/L²*1000)
+    state_param_loc.lat_mm = lateral_out_q / cell_size / cell_size * 1000;
     state_param_loc.soil_moisture += depth / zs;
 
     if (state_param_loc.soil_moisture > sat) {
@@ -83,11 +89,12 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
   }
 
   else {
+    // Channel/Reservoir: evaporation at potential rate (matching Java Ea = Ep for non-Soil)
+    auto ep = const_param_loc.ep * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
+    state_param_loc.actual_evaporate = std::min(ep, rainfall);
     auto depth = rainfall - state_param_loc.actual_evaporate;
     if (depth > 0) {
       state_param_loc.runoff += depth;
-    } else {
-      state_param_loc.actual_evaporate = rainfall;
     }
   }
 }

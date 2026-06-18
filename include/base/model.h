@@ -45,7 +45,9 @@ class Model {
         rainfall_(std::move(rainfall)),
         rainfall_data_length_(static_cast<int>(rainfall_.size())),
         // copy stations
-        stations_(stations) {}
+        stations_(stations) {
+    InitializeState();
+  }
 
   // Thiessen polygon (Voronoi) interpolation: assign each cell to its nearest
   // station so that every cell's rainfall is driven by the closest station.
@@ -79,6 +81,11 @@ class Model {
 
   // flowGeneration doesn't require child time step iteration
   void SimulateOneStep(std::vector<T> station_rain) {
+    for (int item : iter_order_) {
+      state_param_[item].runoff = 0;
+      state_param_[item].lateral_in_flow_mm = 0;
+    }
+
     for (std::size_t idx = 0; idx < iter_order_.size(); ++idx) {
       auto item = iter_order_[idx];
       auto target_opt = target_idx_[idx];
@@ -112,7 +119,22 @@ class Model {
 
   const lms::raster::StateRaster<T>& state_param() const { return state_param_; }
 
+  const std::vector<T>& GetResult() const { return results_; }
+
  private:
+  void InitializeState() {
+    for (int item : iter_order_) {
+      auto& state = state_param_[item];
+      const auto& constant = const_param_[item];
+
+      state.soil_moisture = constant.sat * global_param_.init_soil_water;
+
+      state.lat_mm = 0.0;
+      state.per_mm = 0.0;
+      state.lateral_in_flow_mm = 0.0;
+      state.groundwater_mm = 0.0;
+    }
+  }
   lms::raster::StateRaster<T> state_param_;
   const lms::raster::ConstRaster<T> const_param_;
   const lms::core::ModelMeta<T> model_meta_;
@@ -136,21 +158,43 @@ class Model {
 
   // return water flow of outlet cell
   T FlowConfluenceMultiStep() {
+    lms::core::StateParam<T> exit_sink;
+
     for (int i = 0; i < model_meta_.confluence_steps_; ++i) {
+      std::printf("  Confluence step %d/%zu\n", i + 1, model_meta_.confluence_steps_);
+      std::fflush(stdout);
+
+      // Clear upstream_in_flow for all cells at the start of each confluence sub-timestep.
+      for (int item : iter_order_) {
+        state_param_[item].upstream_in_flow = 0;
+      }
+      exit_sink.upstream_in_flow = 0;
+
       for (std::size_t idx = 0; idx < iter_order_.size(); ++idx) {
         auto item = iter_order_[idx];
-        if (target_idx_[idx].has_value()) [[likely]] {
-          FlowConfluenceStepOnce(state_param_[item], const_param_[item], state_param_[*target_idx_[idx]],
-                                 // TODO: pass actual rainfall for this cell / time step
-                                 static_cast<T>(0), model_meta_, global_param_);
+        auto target_opt = target_idx_[idx];
+
+        if (target_opt.has_value()) {
+          FlowConfluenceStepOnce(state_param_[item], const_param_[item], state_param_[*target_opt], static_cast<T>(0),
+                                 model_meta_, global_param_);
         } else {
-          // todo: find a way to process pourpoint branch
-          return state_param_[idx].upstream_in_flow;
+          // Route the outlet cell to the exit_sink
+          FlowConfluenceStepOnce(state_param_[item], const_param_[item], exit_sink, static_cast<T>(0), model_meta_,
+                                 global_param_);
         }
       }
+
+      // Clear runoff and lateral inflow after they have been routed in the first sub-timestep
+      for (int item : iter_order_) {
+        state_param_[item].runoff = 0;
+        state_param_[item].lateral_in_flow_mm = 0;
+      }
     }
-    // TODO: determine proper return value for the normal path
-    return state_param_[*target_idx_[iter_order_.size() - 1]].upstream_in_flow;
+
+    if (!iter_order_.empty()) {
+      return state_param_[iter_order_.back()].prev_t_flow;
+    }
+    return 0;
   }
 };
 

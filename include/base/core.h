@@ -34,6 +34,7 @@ struct GlobalParam {
   T manning;
   T ss;
   T b;
+  T init_soil_water;
 };
 
 template <typename T>
@@ -65,10 +66,11 @@ struct ConstParam {
   T b;
   T n;
   T v;
+  // T ss;
   T bs;
   // channel bottom width (m)
   T bw;
-  T manning;
+  // T manning;
   T ep;
 };
 /* state factors:
