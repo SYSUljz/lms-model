@@ -109,7 +109,7 @@ class ModelBuilder {
     out.meta.cell_size_ = static_cast<std::size_t>(label.cell_size);
 
     const std::size_t n_cells = static_cast<std::size_t>(W) * static_cast<std::size_t>(H);
-    out.cells.reset(new std::vector<ConstParam<T>>(n_cells));
+    out.cells = std::vector<ConstParam<T>>(n_cells);
     out.active.assign(n_cells, 0);
 
     for (std::size_t i = 0; i < n_cells; ++i) {
@@ -119,7 +119,7 @@ class ModelBuilder {
       }
       out.active[i] = 1;
 
-      ConstParam<T>& c = (*out.cells)[i];
+      ConstParam<T>& c = out[i];
       c.label = LabelFromRaster(static_cast<double>(label.data[i]));
       c.d8 = D8FromRaster(static_cast<double>(d8.data[i]));
       // Convert slope from degrees to ratio (tan), matching Java degreeToRatio()
@@ -350,8 +350,8 @@ class ModelBuilder {
   /// so changes to one raster's mask are visible to the other.
   /// All StateParam fields are default-initialized to zero.
   StateRaster<T> BuildStateRaster(const ConstRaster<T>& const_raster) const {
-    auto active_ptr = std::make_shared<std::vector<char>>(const_raster.active);
-    return StateRaster<T>(const_raster.meta, std::move(active_ptr));
+    auto active_ = std::vector<char>(const_raster.active);
+    return StateRaster<T>(const_raster.meta, std::move(active_));
   }
 
  private:

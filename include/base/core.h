@@ -101,5 +101,6 @@ struct StateParam {
   T temp {0};
   T lateral_in_flow_mm {0};
 };
+
 }  // namespace core
 }  // namespace lms

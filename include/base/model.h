@@ -8,6 +8,7 @@
 
 #include "base/core.h"
 #include "base/direct.h"
+#include "base/factor.h"
 #include "base/rain.h"
 #include "base/raster.h"
 // Forward declarations: free template functions defined in other translation
@@ -28,7 +29,8 @@ namespace model {
 
 template <typename U>
 using Station = lms::rain::Station<U>;
-
+template <typename U>
+using Factor = lms::factor::Factor<U>;
 template <typename T>
 class Model {
  public:
@@ -105,6 +107,19 @@ class Model {
       SimulateOneStep(item);
     }
   }
+  // return a copy of this model
+  Model BuildWithFactor(Factor<T> factor_) {
+    lms::raster::StateRaster<T> state_param = state_param_;
+    lms::core::GlobalParam<T> global_param = global_param_;
+    lms::raster::ConstRaster<T> const_param = const_param_;
+    ApplyGlobalFactor(global_param, factor_);
+    for (size_t i = 0; i < state_param.size(); i++) {
+      ApplyFactor(const_param[i], factor_);
+    }
+    Model<T> factormodel(state_param, const_param, model_meta_, global_param, iter_order_, target_idx_, rainfall_,
+                         stations_);
+    return factormodel;
+  }
 
   // Particle Swarm Optimization
   auto PsoStep() {}
@@ -117,7 +132,7 @@ class Model {
 
   int GetTargetIdx(int this_idx) { return 0; }
 
-  const lms::raster::StateRaster<T>& state_param() const { return state_param_; }
+  lms::raster::StateRaster<T>& state_param() { return state_param_; }
 
   const std::vector<T>& GetResult() const { return results_; }
 
@@ -136,8 +151,8 @@ class Model {
     }
   }
   lms::raster::StateRaster<T> state_param_;
-  const lms::raster::ConstRaster<T> const_param_;
-  const lms::core::ModelMeta<T> model_meta_;
+  lms::raster::ConstRaster<T> const_param_;
+  lms::core::ModelMeta<T> model_meta_;
   lms::core::GlobalParam<T> global_param_;
   // During the simulation, a mock channel cell is added after the outlet to
   // ensure the calculation accuracy of the outlet channel element.
@@ -196,6 +211,29 @@ class Model {
     }
     return 0;
   }
+
+  void ApplyFactor(lms::raster::ConstParam<T>& const_param, lms::factor::Factor<T>& factor_) {
+    const_param.sat *= factor_.sat;
+    const_param.fc *= factor_.fc;
+    const_param.wl *= factor_.wl;
+    const_param.ks *= factor_.ks;
+    const_param.zs *= factor_.zs;
+    const_param.b *= factor_.b;
+    const_param.n *= factor_.n;
+    const_param.v *= factor_.v;
+    const_param.bs *= factor_.bs;
+    const_param.bw *= factor_.bw;
+    const_param.ep *= factor_.ep;
+  }
+
+  void ApplyGlobalFactor(lms::core::GlobalParam<T>& global_param, lms::factor::Factor<T>& factor_) {
+    global_param.manning *= factor_.manning;
+    global_param.soil_alpha_ *= factor_.soil_alpha;
+    global_param.init_soil_water *= factor_.init_soil_water;
+    global_param.ss *= factor_.ss;
+  }
+
+  void CompressRaster() {};
 };
 
 }  // namespace model

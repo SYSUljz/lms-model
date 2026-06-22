@@ -7,9 +7,9 @@
 namespace lms {
 namespace raster {
 
+using lms::core::ConstParam;
 using lms::core::Label;
 using lms::core::ModelMeta;
-using lms::core::ConstParam;
 using lms::core::StateParam;
 using lms::direct::Direct8;
 
@@ -40,38 +40,39 @@ template <typename T>
 struct ConstRaster {
   ModelMeta<T> meta {};
   // row-major, size == meta.width_ * meta.heigh_
-  std::unique_ptr<std::vector<ConstParam<T>>> cells;
+  std::vector<ConstParam<T>> cells;
   // 1 if the cell is inside the basin (label is not NoData), else 0
   std::vector<char> active;
 
   ConstRaster() = default;
-  ConstRaster(const ConstRaster&) = delete;
-  ConstRaster& operator=(const ConstRaster&) = delete;
+  ConstRaster(const ConstRaster&) = default;
+  ConstRaster& operator=(const ConstRaster&) = default;
   ConstRaster(ConstRaster&&) = default;
   ConstRaster& operator=(ConstRaster&&) = default;
 
-  const ConstParam<T>& operator[](std::size_t idx) const { return (*cells)[idx]; }
-  std::vector<int>&& BuildOrder();
+  ConstParam<T>& operator[](std::size_t idx) { return cells[idx]; }
+  size_t size() { return cells.size(); }
 };
 template <typename T>
 struct StateRaster {
   ModelMeta<T> meta_;
   // row-major, size == meta.width_ * meta.heigh_
-  std::unique_ptr<std::vector<StateParam<T>>> cells;
+  std::vector<StateParam<T>> cells;
   // 1 if the cell is inside the basin (label is not NoData), else 0
-  std::shared_ptr<std::vector<char>> active_;
+  std::vector<char> active_;
 
-  StateRaster(ModelMeta<T> meta, std::shared_ptr<std::vector<char>> active)
-      : meta_(meta), active_(active) {
+  StateRaster(ModelMeta<T> meta, std::vector<char> active) : meta_(meta), active_(active) {
     std::size_t n_cells = meta_.width_ * meta_.heigh_;
-    cells = std::make_unique<std::vector<StateParam<T>>>(n_cells);
+    cells = std::vector<StateParam<T>>(n_cells);
   };
-  StateRaster(const StateRaster& stateraster) = delete;
-  StateRaster& operator=(const StateRaster& stateraster) = delete;
+  StateRaster(const StateRaster& stateraster) = default;
+  StateRaster& operator=(const StateRaster& stateraster) = default;
   StateRaster(StateRaster&&) = default;
   StateRaster& operator=(StateRaster&&) = default;
 
-  StateParam<T>& operator[](std::size_t idx) const { return (*cells)[idx]; }
+  StateParam<T>& operator[](std::size_t idx) { return cells[idx]; }
+
+  size_t size() { return cells.size(); }
 };
 
 // ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@
 #include <optional>
 #include <string>
 
+#include "base/factor.h"
 #include "base/model.h"
 #include "base/rain.h"
 #include "builder/rain_builder.h"
@@ -22,9 +23,9 @@
 using T = double;
 using lms::core::ConstParam;
 using lms::core::Label;
+using lms::factor::Factor;
 using lms::raster::ConstRaster;
 using lms::raster::Raster;
-
 int main(int argc, char** argv) {
   const std::string base_dir = "data/meizhou";
   const std::string model_dir = (argc > 1) ? argv[1] : base_dir + "/model";
@@ -84,9 +85,12 @@ int main(int argc, char** argv) {
                                std::move(rainfall_matrix), rain_builder.stations());
 
     std::printf("Model assembled successfully.\n");
+
     model.BuildStationID();
     // 4. Run Simulation
     std::printf("Starting simulation...\n");
+    Factor<T> factor;
+    auto factor_model = model.BuildWithFactor(factor);
     model.SimulateAll();
     std::printf("Simulation completed.\n");
 
@@ -97,10 +101,10 @@ int main(int argc, char** argv) {
       std::printf("  Time step %zu: %g\n", i + 1, results[i] / 3600);
     }
 
-    const auto& final_state = model.state_param();
+    auto& final_state = model.state_param();
     double total_runoff = 0;
     for (std::size_t i = 0; i < final_state.meta_.width_ * final_state.meta_.heigh_; ++i) {
-      if ((*final_state.active_)[i]) {
+      if (final_state.active_[i]) {
         total_runoff += final_state[i].runoff;
       }
     }
