@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -9,6 +10,7 @@
 #include "base/core.h"
 #include "base/direct.h"
 #include "base/factor.h"
+#include "base/flow.h"
 #include "base/rain.h"
 #include "base/raster.h"
 // Forward declarations: free template functions defined in other translation
@@ -37,7 +39,7 @@ class Model {
   Model(lms::raster::StateRaster<T> state_param, lms::raster::ConstRaster<T> const_param,
         lms::core::ModelMeta<T> model_meta, lms::core::GlobalParam<T> global_param, std::vector<int> iter_order,
         std::vector<std::optional<int>> target_idx, std::vector<std::vector<T>> rainfall,
-        std::vector<Station<T>> stations)
+        std::vector<Station<T>> stations, lms::flow::Flow<T> flow)
       : state_param_(std::move(state_param)),
         const_param_(std::move(const_param)),
         model_meta_(model_meta),
@@ -47,9 +49,18 @@ class Model {
         rainfall_(std::move(rainfall)),
         rainfall_data_length_(static_cast<int>(rainfall_.size())),
         // copy stations
-        stations_(stations) {
+        stations_(stations),
+        flow_(std::move(flow)) {
     InitializeState();
   }
+
+  // Delete copy constructor and copy assignment operator
+  Model(const Model&) = delete;
+  Model& operator=(const Model&) = delete;
+
+  // Implement move constructor and move assignment operator
+  Model(Model&&) noexcept = default;
+  Model& operator=(Model&&) noexcept = default;
 
   // Thiessen polygon (Voronoi) interpolation: assign each cell to its nearest
   // station so that every cell's rainfall is driven by the closest station.
@@ -103,10 +114,19 @@ class Model {
   }
 
   auto SimulateAll() {
+    results_.clear();
     for (auto& item : rainfall_) {
       SimulateOneStep(item);
     }
   }
+  T SimulateEval() {
+    results_.clear();
+    for (auto& item : rainfall_) {
+      SimulateOneStep(item);
+    }
+    return objective_func_(results_, flow_.data);
+  }
+
   // return a copy of this model
   Model BuildWithFactor(Factor<T> factor_) {
     lms::raster::StateRaster<T> state_param = state_param_;
@@ -117,12 +137,9 @@ class Model {
       ApplyFactor(const_param[i], factor_);
     }
     Model<T> factormodel(state_param, const_param, model_meta_, global_param, iter_order_, target_idx_, rainfall_,
-                         stations_);
+                         stations_, flow_);
     return factormodel;
   }
-
-  // Particle Swarm Optimization
-  auto PsoStep() {}
 
   bool BuildOrder() { return false; }
 
@@ -170,8 +187,11 @@ class Model {
   std::vector<Station<T>> stations_;
   // store simulate result
   std::vector<T> results_;
-
-  // return water flow of outlet cell
+  // store measure flow
+  lms::flow::Flow<T> flow_;
+  // Object Function for optimise
+  std::function<T(const std::vector<T>&, const std::vector<T>&)> objective_func_;
+  //  return water flow of outlet cell
   T FlowConfluenceMultiStep() {
     lms::core::StateParam<T> exit_sink;
 

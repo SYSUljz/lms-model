@@ -16,10 +16,11 @@
 #include "base/factor.h"
 #include "base/model.h"
 #include "base/rain.h"
+#include "builder/flow_builder.h"
 #include "builder/rain_builder.h"
 #include "builder/raster_builder.h"
 #include "io/gdal_reader.h"
-
+#include "starlings.h"
 using T = double;
 using lms::core::ConstParam;
 using lms::core::Label;
@@ -59,7 +60,7 @@ int main(int argc, char** argv) {
     std::printf("Raster data built: %zu active cells, %zu order length\n",
                 std::count(cr.active.begin(), cr.active.end(), 1), order.size());
 
-    // 2. Build Rainfall Data
+    // 2. Build Rainfall & Flow Data
     const std::string rain_file = "2007060608.csv";
     const std::string station_file = "st_old.CSV";
     constexpr std::size_t kStationCnt = 20;
@@ -72,6 +73,12 @@ int main(int argc, char** argv) {
     std::printf("Rainfall data loaded: %zu time steps, %zu stations\n", rainfall_matrix.size(),
                 rain_builder.stations().size());
 
+    lms::flow::FlowBuilder<T> flow_builder;
+    flow_builder.from_directory(base_dir);
+    flow_builder.BuildAll(rain_file, meta);
+    auto flow_data = flow_builder.flow();
+    std::printf("Flow data loaded: %zu time steps\n", flow_data.duration);
+
     // 3. Assemble Model
     lms::core::GlobalParam<T> global_param {};
     global_param.soil_alpha_ = 4.0;
@@ -82,7 +89,7 @@ int main(int argc, char** argv) {
     global_param.init_soil_water = 0.3;
 
     lms::model::Model<T> model(std::move(sr), std::move(cr), meta, global_param, std::move(order), std::move(targets),
-                               std::move(rainfall_matrix), rain_builder.stations());
+                               std::move(rainfall_matrix), rain_builder.stations(), std::move(flow_data));
 
     std::printf("Model assembled successfully.\n");
 
@@ -91,6 +98,8 @@ int main(int argc, char** argv) {
     std::printf("Starting simulation...\n");
     Factor<T> factor;
     auto factor_model = model.BuildWithFactor(factor);
+    auto starlings::WorkActor<decltype(&SphereFunction), std::vector<double>> actor(SphereFunction);
+
     model.SimulateAll();
     std::printf("Simulation completed.\n");
 
