@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+#include <numeric>
+#include <cmath>
 namespace lms {
 namespace objfunc {
 

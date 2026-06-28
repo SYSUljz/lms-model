@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "algorithm/object_function.hpp"
 #include "base/core.h"
 #include "base/direct.h"
 #include "base/factor.h"
@@ -52,6 +53,9 @@ class Model {
         stations_(stations),
         flow_(std::move(flow)) {
     InitializeState();
+    objective_func_ = [](const std::vector<T>& sim, const std::vector<T>& obs) {
+      return T {1} - lms::objfunc::CalculateNSE(sim, obs);
+    };
   }
 
   // Delete copy constructor and copy assignment operator
@@ -138,6 +142,8 @@ class Model {
     }
     Model<T> factormodel(state_param, const_param, model_meta_, global_param, iter_order_, target_idx_, rainfall_,
                          stations_, flow_);
+    factormodel.station_id_ = station_id_;
+    factormodel.objective_func_ = objective_func_;
     return factormodel;
   }
 
@@ -196,8 +202,8 @@ class Model {
     lms::core::StateParam<T> exit_sink;
 
     for (int i = 0; i < model_meta_.confluence_steps_; ++i) {
-      std::printf("  Confluence step %d/%zu\n", i + 1, model_meta_.confluence_steps_);
-      std::fflush(stdout);
+      // std::printf("  Confluence step %d/%zu\n", i + 1, model_meta_.confluence_steps_);
+      // std::fflush(stdout);
 
       // Clear upstream_in_flow for all cells at the start of each confluence sub-timestep.
       for (int item : iter_order_) {

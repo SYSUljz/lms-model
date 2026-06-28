@@ -96,9 +96,6 @@ int main(int argc, char** argv) {
     model.BuildStationID();
     // 4. Run Simulation
     std::printf("Starting simulation...\n");
-    Factor<T> factor;
-    auto factor_model = model.BuildWithFactor(factor);
-    auto starlings::WorkActor<decltype(&SphereFunction), std::vector<double>> actor(SphereFunction);
 
     model.SimulateAll();
     std::printf("Simulation completed.\n");
