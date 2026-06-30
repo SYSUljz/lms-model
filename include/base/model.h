@@ -53,6 +53,11 @@ class Model {
         stations_(stations),
         flow_(std::move(flow)) {
     InitializeState();
+    PrecomputeHelpers();
+    global_param_.soil_alpha_exp_minus_one_inv_ = 
+        (std::abs(global_param_.soil_alpha_) > static_cast<T>(1e-6))
+        ? (static_cast<T>(1) / (std::exp(global_param_.soil_alpha_) - static_cast<T>(1)))
+        : static_cast<T>(1);
     objective_func_ = [](const std::vector<T>& sim, const std::vector<T>& obs) {
       return T {1} - lms::objfunc::CalculateNSE(sim, obs);
     };
@@ -171,6 +176,25 @@ class Model {
       state.per_mm = 0.0;
       state.lateral_in_flow_mm = 0.0;
       state.groundwater_mm = 0.0;
+    }
+  }
+  void PrecomputeHelpers() {
+    T cell_size = static_cast<T>(model_meta_.cell_size_);
+    for (int item : iter_order_) {
+      auto& constant = const_param_[item];
+      T manning = constant.n;
+      T slope = constant.slop;
+      if (std::isnan(manning) || manning <= 0) manning = static_cast<T>(0.03);
+      if (std::isnan(cell_size) || cell_size <= 0) cell_size = static_cast<T>(30);
+      if (std::isnan(slope) || slope <= 0) [[unlikely]] {
+        slope = static_cast<T>(1e-6);
+      }
+      T alpha = std::pow(manning * std::pow(cell_size, static_cast<T>(0.666667)) * std::pow(slope, static_cast<T>(-0.5)) /
+                             static_cast<T>(3600),
+                          static_cast<T>(0.6));
+      if (std::isnan(alpha)) alpha = static_cast<T>(1);
+      constant.cached_soil_alpha = alpha;
+      constant.cached_dx = GetDirectFactor<T>(constant.d8) * cell_size;
     }
   }
   lms::raster::StateRaster<T> state_param_;

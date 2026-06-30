@@ -66,7 +66,7 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
     auto depth = rainfall - state_param_loc.actual_evaporate + lateral_in_q -
                  (percolate_out_q + lateral_out_q) / cell_size / cell_size * 1000.0;
     if (depth > k) {
-      auto a = (std::exp(soil_alpha * soil_moisture / sat) - 1) / (std::exp(soil_alpha) - 1);
+      auto a = (std::exp(soil_alpha * soil_moisture / sat) - 1) * global_param.soil_alpha_exp_minus_one_inv_;
       state_param_loc.runoff += (depth - k) * a;
       depth = k + (depth - k) * (1 - a);
     }

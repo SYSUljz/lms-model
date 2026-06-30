@@ -28,9 +28,9 @@ void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>&
   auto dt_sub = static_cast<T>(meta_data.runoff_dt_s_) / static_cast<T>(3600.0);
   // total confluence time = sub-step × steps (e.g. 10 min × 6 = 1 h)
   auto dt_full = dt_sub * static_cast<T>(steps);
-  auto alpha = GetSoilAlpha<T>(const_param_loc.n, cell_size, const_param_loc.slop);
+  auto alpha = const_param_loc.cached_soil_alpha;
   auto beta = static_cast<T>(0.6);
-  auto dx = GetDirectFactor<T>(const_param_loc.d8) * cell_size;
+  auto dx = const_param_loc.cached_dx;
 
   auto upstream_flow_in = state_param_loc.upstream_in_flow;
   auto prev_t_flow = state_param_loc.prev_t_flow;
@@ -50,7 +50,7 @@ void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>&
       auto soil_alpha = global_param.soil_alpha_;
       if (std::abs(soil_alpha) > static_cast<T>(1e-6)) {
         auto a_val =
-            (std::exp(soil_alpha * cur / sat) - static_cast<T>(1)) / (std::exp(soil_alpha) - static_cast<T>(1));
+            (std::exp(soil_alpha * cur / sat) - static_cast<T>(1)) * global_param.soil_alpha_exp_minus_one_inv_;
         lateral_runoff += (depth - k) * a_val;
         depth = k + (depth - k) * (static_cast<T>(1) - a_val);
       }
@@ -67,9 +67,9 @@ void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>&
 
   // q is Lateral inflow intensity per unit length (m^3/h/m)
   // Runoff enters concentrated in the sub-step: volume / dt_sub / dx
-  auto runoff_q = (state_param_loc.runoff + lateral_runoff) * cell_size * cell_size * 0.001 / dx / dt_sub;
+  auto runoff_q = (state_param_loc.runoff + lateral_runoff) * cell_size * cell_size * static_cast<T>(0.001) / dx / dt_sub;
   // Groundwater is steady baseflow spread over the full timestep: volume / dt_full / dx
-  auto groundwater_q = underground_flow_mm * cell_size * cell_size * 0.001 / dx / dt_full;
+  auto groundwater_q = underground_flow_mm * cell_size * cell_size * static_cast<T>(0.001) / dx / dt_full;
   auto q = runoff_q + groundwater_q;
 
   // Slope Kinematic Wave Routing for Soil cell
@@ -103,3 +103,9 @@ template void FlowConfluenceStepOnce<double>(StateParam<double>& state_param_loc
                                              StateParam<double>& target_state, double rainfall,
                                              const ModelMeta<double>& meta_data,
                                              const GlobalParam<double>& global_param);
+
+template void FlowConfluenceStepOnce<float>(StateParam<float>& state_param_loc,
+                                            const ConstParam<float>& const_param_loc,
+                                            StateParam<float>& target_state, float rainfall,
+                                            const ModelMeta<float>& meta_data,
+                                            const GlobalParam<float>& global_param);

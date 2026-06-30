@@ -65,13 +65,16 @@ T SolveSaintVenant(T iQ, T q, T alpha, T beta, T dT, T dX, T iQPrevX, T iQPrevT)
   T dff = iQ;
   T duu;
   int cnt = 0;
+  T iQPrevT_safe = std::max(iQPrevT, static_cast<T>(1e-10));
+  T const_term = alpha * std::pow(iQPrevT_safe, beta);
+
   while (cnt < 20) {
     cnt++;
     T iQ_safe = std::max(iQ, static_cast<T>(1e-10));
-    T iQPrevT_safe = std::max(iQPrevT, static_cast<T>(1e-10));
+    T pow_val = std::pow(iQ_safe, beta);
     auto diff =
-        iQ * dT / dX + alpha * std::pow(iQ_safe, beta) - iQPrevX * dT / dX - alpha * std::pow(iQPrevT_safe, beta) - q * dT;
-    duu = dT / dX + alpha * beta * std::pow(iQ_safe, beta - 1);
+        iQ * dT / dX + alpha * pow_val - iQPrevX * dT / dX - const_term - q * dT;
+    duu = dT / dX + alpha * beta * (pow_val / iQ_safe);
 
     dff = diff;
     dff /= duu;
