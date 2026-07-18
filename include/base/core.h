@@ -34,6 +34,10 @@ struct GlobalParam {
   T manning;
   T ss;
   T b;
+  T init_soil_water;
+
+  // Precomputed helpers
+  T soil_alpha_exp_minus_one_inv_{0};
 };
 
 template <typename T>
@@ -65,11 +69,16 @@ struct ConstParam {
   T b;
   T n;
   T v;
+  // T ss;
   T bs;
   // channel bottom width (m)
   T bw;
-  T manning;
+  // T manning;
   T ep;
+
+  // Precomputed helpers
+  T cached_soil_alpha{0};
+  T cached_dx{0};
 };
 /* state factors:
   soil_moisture        — current soil moisture
@@ -99,5 +108,6 @@ struct StateParam {
   T temp {0};
   T lateral_in_flow_mm {0};
 };
+
 }  // namespace core
 }  // namespace lms

@@ -7,6 +7,7 @@
 // runs on its own and you can inspect what was read before the solver exists.
 
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <optional>
@@ -61,17 +62,45 @@ class ModelBuilder {
     // channel parameters
     Raster<T> bs = load("bs.tif");
     Raster<T> bw = load("bw.tif");
-    Raster<T> manning = load("manning.tif");
+    // Raster<T> manning = load("manning.tif");
+
+    // ep.tif is optional: load it if present, otherwise default to 0
+    Raster<T> ep_raster;
+    bool has_ep = false;
+    try {
+      ep_raster = load("ep.tif");
+      has_ep = true;
+    } catch (const std::exception&) {
+      // ep.tif not found — ep will remain 0 for all cells
+    }
+
+    // ss.tif is optional (channel side slope in degrees): convert to radians
+    Raster<T> ss_raster;
+    bool has_ss = false;
+    // try {
+    //   ss_raster = load("ss.tif");
+    //   has_ss = true;
+    // } catch (const std::exception&) {
+    //   // ss.tif not found — use global default
+    // }
 
     const int W = label.width;
     const int H = label.height;
 
-    const std::array<const Raster<T>*, 14> all = {&label, &d8, &slope, &sat, &fc, &wl, &zs,
-                                                  &ks,    &b,  &n,     &v,   &bs, &bw, &manning};
-    for (const Raster<T>* r : all) {
+    // const std::array<const Raster<T>*, 14> required = {&label, &d8, &slope, &sat, &fc, &wl, &zs,
+    //                                                    &ks,    &b,  &n,     &v,   &bs, &bw, &manning};
+    const std::array<const Raster<T>*, 13> required = {&label, &d8, &slope, &sat, &fc, &wl, &zs,
+                                                       &ks,    &b,  &n,     &v,   &bs, &bw};
+    for (const Raster<T>* r : required) {
       if (r->width != W || r->height != H) {
         throw std::runtime_error("ModelBuilder: raster dimension mismatch");
       }
+    }
+    if (has_ep && (ep_raster.width != W || ep_raster.height != H)) {
+      throw std::runtime_error("ModelBuilder: ep.tif dimension mismatch");
+    }
+    if (has_ss && (ss_raster.width != W || ss_raster.height != H)) {
+      throw std::runtime_error("ModelBuilder: ss.tif dimension mismatch");
     }
 
     ConstRaster<T> out;
@@ -80,7 +109,7 @@ class ModelBuilder {
     out.meta.cell_size_ = static_cast<std::size_t>(label.cell_size);
 
     const std::size_t n_cells = static_cast<std::size_t>(W) * static_cast<std::size_t>(H);
-    out.cells.reset(new std::vector<ConstParam<T>>(n_cells));
+    out.cells = std::vector<ConstParam<T>>(n_cells);
     out.active.assign(n_cells, 0);
 
     for (std::size_t i = 0; i < n_cells; ++i) {
@@ -90,10 +119,11 @@ class ModelBuilder {
       }
       out.active[i] = 1;
 
-      ConstParam<T>& c = (*out.cells)[i];
+      ConstParam<T>& c = out[i];
       c.label = LabelFromRaster(static_cast<double>(label.data[i]));
       c.d8 = D8FromRaster(static_cast<double>(d8.data[i]));
-      c.slop = slope.data[i];
+      // Convert slope from degrees to ratio (tan), matching Java degreeToRatio()
+      c.slop = std::tan(slope.data[i] * static_cast<T>(M_PI / 180.0));
       c.sat = sat.data[i];
       c.fc = fc.data[i];
       c.wl = wl.data[i];
@@ -103,9 +133,20 @@ class ModelBuilder {
       c.n = n.data[i];
       c.v = v.data[i];
       c.bs = bs.data[i];
+      // Floor channel bed slope to 0.005 (matching Java floorBs(0.005))
+      if (c.bs < static_cast<T>(0.005) && c.bs >= 0) {
+        c.bs = static_cast<T>(0.005);
+      }
       c.bw = bw.data[i];
-      c.manning = manning.data[i];
-      c.ep = T {0};  // no potential-evapotranspiration tile yet
+      // c.manning = manning.data[i];
+      //  Convert channel side-slope from degrees to radians (matching Java degreeToRadians)
+      // if (has_ss) {
+      //   T ss_deg = ss_raster.data[i];
+      //   c.ss = (ss_deg > 0) ? ss_deg * static_cast<T>(M_PI / 180.0) : static_cast<T>(0.5);
+      // } else {
+      //   c.ss = static_cast<T>(0.5);  // default ~28.6° in radians, safe fallback
+      // }
+      c.ep = has_ep ? ep_raster.data[i] : static_cast<T>(0.23);  // default 0.23 mm/h (matches Java)
     }
 
     return out;
@@ -253,7 +294,7 @@ class ModelBuilder {
 
     for (int i : order) {
       int dir = static_cast<int>(d8.data[i]);
-
+      // filter out Nodata cells or cells with invalid flow directions (sinks)
       if (dir != 1 && dir != 2 && dir != 4 && dir != 8 && dir != 16 && dir != 32 && dir != 64 && dir != 128) {
         targets.push_back(std::nullopt);
         continue;
@@ -309,8 +350,8 @@ class ModelBuilder {
   /// so changes to one raster's mask are visible to the other.
   /// All StateParam fields are default-initialized to zero.
   StateRaster<T> BuildStateRaster(const ConstRaster<T>& const_raster) const {
-    auto active_ptr = std::make_shared<std::vector<char>>(const_raster.active);
-    return StateRaster<T>(const_raster.meta, std::move(active_ptr));
+    auto active_ = std::vector<char>(const_raster.active);
+    return StateRaster<T>(const_raster.meta, std::move(active_));
   }
 
  private:

@@ -13,17 +13,46 @@
 #include <optional>
 #include <string>
 
+#include "base/factor.h"
 #include "base/model.h"
 #include "base/rain.h"
+#include "builder/flow_builder.h"
 #include "builder/rain_builder.h"
 #include "builder/raster_builder.h"
+#include "ex_opt.h"
 #include "io/gdal_reader.h"
-
-using T = double;
+using T = float;
 using lms::core::ConstParam;
 using lms::core::Label;
+using lms::factor::Factor;
 using lms::raster::ConstRaster;
 using lms::raster::Raster;
+
+struct LmsParamsMapper {
+  template <typename T>
+  static std::vector<double> to_vector(const Factor<T>& p) {
+    return {p.sat, p.fc, p.wl, p.ks, p.zs, p.b, p.n, p.v, p.bs, p.bw, p.ep, p.manning, p.soil_alpha, p.init_soil_water,
+            p.ss};
+  }
+  template <typename T>
+  static void update_from_vector(Factor<T>& dest, const std::vector<double>& v) {
+    dest.sat = static_cast<T>(v[0]);
+    dest.fc = static_cast<T>(v[1]);
+    dest.wl = static_cast<T>(v[2]);
+    dest.ks = static_cast<T>(v[3]);
+    dest.zs = static_cast<T>(v[4]);
+    dest.b = static_cast<T>(v[5]);
+    dest.n = static_cast<T>(v[6]);
+    dest.v = static_cast<T>(v[7]);
+    dest.bs = static_cast<T>(v[8]);
+    dest.bw = static_cast<T>(v[9]);
+    dest.ep = static_cast<T>(v[10]);
+    dest.manning = static_cast<T>(v[11]);
+    dest.soil_alpha = static_cast<T>(v[12]);
+    dest.init_soil_water = static_cast<T>(v[13]);
+    dest.ss = static_cast<T>(v[14]);
+  }
+};
 
 int main(int argc, char** argv) {
   const std::string base_dir = "data/meizhou";
@@ -43,8 +72,8 @@ int main(int argc, char** argv) {
     meta.heigh_ = cr.meta.heigh_;
     meta.cell_size_ = cr.meta.cell_size_;
     meta.time_interval_s_ = 3600;  // 1 hour
-    meta.confluence_steps_ = 60;
-    meta.runoff_dt_s_ = 60;
+    meta.confluence_steps_ = 1;
+    meta.runoff_dt_s_ = 3600;
     // Bounds for coordinate conversion (placeholder values)
     meta.raster_min_lat_ = 2580000.0;
     meta.raster_max_lat_ = 2610000.0;
@@ -58,7 +87,7 @@ int main(int argc, char** argv) {
     std::printf("Raster data built: %zu active cells, %zu order length\n",
                 std::count(cr.active.begin(), cr.active.end(), 1), order.size());
 
-    // 2. Build Rainfall Data
+    // 2. Build Rainfall & Flow Data
     const std::string rain_file = "2007060608.csv";
     const std::string station_file = "st_old.CSV";
     constexpr std::size_t kStationCnt = 20;
@@ -71,32 +100,49 @@ int main(int argc, char** argv) {
     std::printf("Rainfall data loaded: %zu time steps, %zu stations\n", rainfall_matrix.size(),
                 rain_builder.stations().size());
 
+    lms::flow::FlowBuilder<T> flow_builder;
+    flow_builder.from_directory(base_dir);
+    flow_builder.BuildAll(rain_file, meta);
+    auto flow_data = flow_builder.flow();
+    std::printf("Flow data loaded: %zu time steps\n", flow_data.duration);
+
     // 3. Assemble Model
     lms::core::GlobalParam<T> global_param {};
-    global_param.soil_alpha_ = 0.5;
-    global_param.baseflow_coff = 0.1;
-    global_param.v = 1.0;
-    global_param.manning = 0.03;
+    global_param.soil_alpha_ = 4.0;
+    global_param.baseflow_coff = 0.998;
+    global_param.v = 0.7;
+    global_param.manning = 0.025;
+    global_param.ss = 60.0;
+    global_param.init_soil_water = 0.5;
 
     lms::model::Model<T> model(std::move(sr), std::move(cr), meta, global_param, std::move(order), std::move(targets),
-                               std::move(rainfall_matrix), rain_builder.stations());
+                               std::move(rainfall_matrix), rain_builder.stations(), std::move(flow_data));
 
     std::printf("Model assembled successfully.\n");
+
     model.BuildStationID();
     // 4. Run Simulation
     std::printf("Starting simulation...\n");
-    model.SimulateAll();
+    Factor<T> factor;
+
+    ex_opt::sa::SaSettings settings(15, 0.5, 1.5);
+    settings.T_max = 1.0;
+    settings.T_min = 1e-9;
+    settings.L = 300;
+    settings.max_stay_counter = 150;
+    settings.print_every = 1;
+    auto best = ex_opt::optimize<LmsParamsMapper>(
+        settings, factor, [&model](Factor<T> factor) { return model.SimulateEval(factor); },
+        /*num_actors=*/6);
+
+    auto results = model.Simulate(best);
     std::printf("Simulation completed.\n");
 
     // 5. Verify results (simple check)
-    const auto& final_state = model.state_param();
-    double total_runoff = 0;
-    for (std::size_t i = 0; i < final_state.meta_.width_ * final_state.meta_.heigh_; ++i) {
-      if ((*final_state.active_)[i]) {
-        total_runoff += final_state[i].runoff;
-      }
+    std::printf("Simulation Results (outlet flow at each time step):\n");
+    for (std::size_t i = 0; i < results.size(); ++i) {
+      std::printf("  Time step %zu: %g\n", i + 1, results[i] / 3600);
     }
-    std::printf("Final Total Runoff (sum across all cells): %g\n", total_runoff);
 
     std::printf("== Full Model Construction End ==\n");
 
