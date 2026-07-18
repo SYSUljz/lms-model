@@ -1,6 +1,7 @@
 #include "../utils.hpp"
 #include "base/core.h"
 #include "base/direct.h"
+#include "base/factor.h"
 
 using lms::core::ConstParam;
 using lms::core::GlobalParam;
@@ -12,7 +13,7 @@ using lms::direct::GetDirectFactor;
 template <typename T>
 void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>& const_param_loc,
                             StateParam<T>& target_state, T rainfall, const ModelMeta<T>& meta_data,
-                            const GlobalParam<T>& global_param) {
+                            const GlobalParam<T>& global_param, const lms::factor::Factor<T>& factor) {
   if (std::isnan(state_param_loc.runoff)) state_param_loc.runoff = 0;
   if (std::isnan(state_param_loc.lateral_in_flow_mm)) state_param_loc.lateral_in_flow_mm = 0;
   if (std::isnan(state_param_loc.groundwater_mm)) state_param_loc.groundwater_mm = 0;
@@ -28,7 +29,7 @@ void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>&
   auto dt_sub = static_cast<T>(meta_data.runoff_dt_s_) / static_cast<T>(3600.0);
   // total confluence time = sub-step × steps (e.g. 10 min × 6 = 1 h)
   auto dt_full = dt_sub * static_cast<T>(steps);
-  auto alpha = const_param_loc.cached_soil_alpha;
+  auto alpha = const_param_loc.cached_soil_alpha * std::pow(factor.n, static_cast<T>(0.6));
   auto beta = static_cast<T>(0.6);
   auto dx = const_param_loc.cached_dx;
 
@@ -39,11 +40,11 @@ void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>&
   // Calculate lateral runoff contribution from upstream cells' lateral inflow
   T lateral_runoff = 0;
   if (const_param_loc.label == Label::Soil) {
-    auto sat = const_param_loc.sat;
+    auto sat = const_param_loc.sat * factor.sat;
     auto cur = state_param_loc.soil_moisture;
-    auto ks = const_param_loc.ks * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
-    auto k = GetK(cur, sat, const_param_loc.b, ks);
-    auto zs = const_param_loc.zs;
+    auto ks = const_param_loc.ks * factor.ks * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
+    auto k = GetK(cur, sat, const_param_loc.b * factor.b, ks);
+    auto zs = const_param_loc.zs * factor.zs;
     auto depth = state_param_loc.lateral_in_flow_mm;
 
     if (depth > k) {
@@ -80,9 +81,9 @@ void FlowConfluenceStepOnce(StateParam<T>& state_param_loc, const ConstParam<T>&
   }
 
   else if (const_param_loc.label == Label::Channel) {
-    auto bw = const_param_loc.bw;
+    auto bw = const_param_loc.bw * factor.bw;
     auto ss = global_param.ss;
-    auto bs = const_param_loc.bs;
+    auto bs = const_param_loc.bs * factor.bs;
     auto manning = global_param.manning;
     auto water_depth = state_param_loc.water_level;
     auto channel_x = GetChannelX(water_depth, bw, ss);
@@ -102,10 +103,12 @@ template void FlowConfluenceStepOnce<double>(StateParam<double>& state_param_loc
                                              const ConstParam<double>& const_param_loc,
                                              StateParam<double>& target_state, double rainfall,
                                              const ModelMeta<double>& meta_data,
-                                             const GlobalParam<double>& global_param);
+                                             const GlobalParam<double>& global_param,
+                                             const lms::factor::Factor<double>& factor);
 
 template void FlowConfluenceStepOnce<float>(StateParam<float>& state_param_loc,
                                             const ConstParam<float>& const_param_loc,
                                             StateParam<float>& target_state, float rainfall,
                                             const ModelMeta<float>& meta_data,
-                                            const GlobalParam<float>& global_param);
+                                            const GlobalParam<float>& global_param,
+                                            const lms::factor::Factor<float>& factor);

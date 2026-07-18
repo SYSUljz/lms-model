@@ -20,12 +20,13 @@
 template <typename T>
 void FlowGeneration(lms::core::StateParam<T>& state_param_loc, const lms::core::ConstParam<T>& const_param_loc,
                     lms::core::StateParam<T>& target_state, T rainfall, const lms::core::ModelMeta<T>& meta_data,
-                    const lms::core::GlobalParam<T>& global_param);
+                    const lms::core::GlobalParam<T>& global_param, const lms::factor::Factor<T>& factor);
 
 template <typename T>
 void FlowConfluenceStepOnce(lms::core::StateParam<T>& state_param_loc, const lms::core::ConstParam<T>& const_param_loc,
                             lms::core::StateParam<T>& target_state, T rainfall,
-                            const lms::core::ModelMeta<T>& meta_data, const lms::core::GlobalParam<T>& global_param);
+                            const lms::core::ModelMeta<T>& meta_data, const lms::core::GlobalParam<T>& global_param,
+                            const lms::factor::Factor<T>& factor);
 
 namespace lms {
 namespace model {
@@ -34,6 +35,8 @@ template <typename U>
 using Station = lms::rain::Station<U>;
 template <typename U>
 using Factor = lms::factor::Factor<U>;
+
+
 template <typename T>
 class Model {
  public:
@@ -101,55 +104,44 @@ class Model {
     return *this;
   }
 
-  // flowGeneration doesn't require child time step iteration
-  void SimulateOneStep(std::vector<T> station_rain) {
-    for (int item : iter_order_) {
-      state_param_[item].runoff = 0;
-      state_param_[item].lateral_in_flow_mm = 0;
-    }
+  // Run simulation with optional factor. Returns results without mutating Model.
+  std::vector<T> Simulate(const Factor<T>& factor = {}) const {
+    // 1. Scale global parameters
+    lms::core::GlobalParam<T> scaled_global_param = global_param_;
+    scaled_global_param.manning *= factor.manning;
+    scaled_global_param.soil_alpha_ *= factor.soil_alpha;
+    scaled_global_param.init_soil_water *= factor.init_soil_water;
+    scaled_global_param.ss *= factor.ss;
 
-    for (std::size_t idx = 0; idx < iter_order_.size(); ++idx) {
-      auto item = iter_order_[idx];
-      auto target_opt = target_idx_[idx];
-      if (!target_opt.has_value()) continue;
+    scaled_global_param.soil_alpha_exp_minus_one_inv_ = 
+        (std::abs(scaled_global_param.soil_alpha_) > static_cast<T>(1e-6))
+        ? (static_cast<T>(1) / (std::exp(scaled_global_param.soil_alpha_) - static_cast<T>(1)))
+        : static_cast<T>(1);
 
-      int target_idx = *target_opt;
-      std::size_t rain_idx = station_id_[idx];
-
-      FlowGeneration(state_param_[item], const_param_[item], state_param_[target_idx],
-                     station_rain.empty() ? static_cast<T>(0) : station_rain[rain_idx], model_meta_, global_param_);
-    }
-    results_.push_back(FlowConfluenceMultiStep());
-  }
-
-  auto SimulateAll() {
-    results_.clear();
-    for (auto& item : rainfall_) {
-      SimulateOneStep(item);
-    }
-  }
-  T SimulateEval() {
-    results_.clear();
-    for (auto& item : rainfall_) {
-      SimulateOneStep(item);
-    }
-    return objective_func_(results_, flow_.data);
-  }
-
-  // return a copy of this model
-  Model BuildWithFactor(Factor<T> factor_) {
+    // 2. Initialize running state_param by copying initial state_param_
     lms::raster::StateRaster<T> state_param = state_param_;
-    lms::core::GlobalParam<T> global_param = global_param_;
-    lms::raster::ConstRaster<T> const_param = const_param_;
-    ApplyGlobalFactor(global_param, factor_);
-    for (size_t i = 0; i < state_param.size(); i++) {
-      ApplyFactor(const_param[i], factor_);
+    // Re-initialize soil moisture with scaled global init_soil_water and scaled sat
+    T scaled_init_soil_water = global_param_.init_soil_water * factor.init_soil_water;
+    for (int item : iter_order_) {
+      auto& state = state_param[item];
+      const auto& constant = const_param_[item];
+      state.soil_moisture = (constant.sat * factor.sat) * scaled_init_soil_water;
     }
-    Model<T> factormodel(state_param, const_param, model_meta_, global_param, iter_order_, target_idx_, rainfall_,
-                         stations_, flow_);
-    factormodel.station_id_ = station_id_;
-    factormodel.objective_func_ = objective_func_;
-    return factormodel;
+
+    std::vector<T> results;
+    results.reserve(rainfall_.size());
+
+    // 3. Run step-by-step
+    for (const auto& rain_step : rainfall_) {
+      SimulateOneStep(state_param, scaled_global_param, factor, rain_step, results);
+    }
+
+    return results;
+  }
+
+  // Run simulation and evaluate against observed flow. Returns objective value.
+  T SimulateEval(const Factor<T>& factor = {}) const {
+    return objective_func_(Simulate(factor), flow_.data);
   }
 
   bool BuildOrder() { return false; }
@@ -160,9 +152,7 @@ class Model {
 
   int GetTargetIdx(int this_idx) { return 0; }
 
-  lms::raster::StateRaster<T>& state_param() { return state_param_; }
-
-  const std::vector<T>& GetResult() const { return results_; }
+  const lms::raster::StateRaster<T>& state_param() const { return state_param_; }
 
  private:
   void InitializeState() {
@@ -178,6 +168,7 @@ class Model {
       state.groundwater_mm = 0.0;
     }
   }
+
   void PrecomputeHelpers() {
     T cell_size = static_cast<T>(model_meta_.cell_size_);
     for (int item : iter_order_) {
@@ -197,41 +188,41 @@ class Model {
       constant.cached_dx = GetDirectFactor<T>(constant.d8) * cell_size;
     }
   }
-  lms::raster::StateRaster<T> state_param_;
-  lms::raster::ConstRaster<T> const_param_;
-  lms::core::ModelMeta<T> model_meta_;
-  lms::core::GlobalParam<T> global_param_;
-  // During the simulation, a mock channel cell is added after the outlet to
-  // ensure the calculation accuracy of the outlet channel element.
-  // iter_order_[a]=b means the a'th step iter we process cell with b idx in
-  // param raster (both state and const)
-  std::vector<int> iter_order_;
-  // iter_order_[a]=c means the ath step we are processing b cell the flow
-  // direction of b cell is c cell
-  std::vector<std::optional<int>> target_idx_;
-  std::vector<int> station_id_;
-  // rainfall_[time][station]
-  std::vector<std::vector<T>> rainfall_;
-  int rainfall_data_length_;
-  // station meta_data collection
-  std::vector<Station<T>> stations_;
-  // store simulate result
-  std::vector<T> results_;
-  // store measure flow
-  lms::flow::Flow<T> flow_;
-  // Object Function for optimise
-  std::function<T(const std::vector<T>&, const std::vector<T>&)> objective_func_;
-  //  return water flow of outlet cell
-  T FlowConfluenceMultiStep() {
+
+  void SimulateOneStep(lms::raster::StateRaster<T>& state_param,
+                       const lms::core::GlobalParam<T>& scaled_global_param,
+                       const Factor<T>& factor,
+                       const std::vector<T>& station_rain,
+                       std::vector<T>& results) const {
+    for (int item : iter_order_) {
+      state_param[item].runoff = 0;
+      state_param[item].lateral_in_flow_mm = 0;
+    }
+
+    for (std::size_t idx = 0; idx < iter_order_.size(); ++idx) {
+      auto item = iter_order_[idx];
+      auto target_opt = target_idx_[idx];
+      if (!target_opt.has_value()) continue;
+
+      int target_idx = *target_opt;
+      std::size_t rain_idx = station_id_[idx];
+
+      FlowGeneration(state_param[item], const_param_[item], state_param[target_idx],
+                     station_rain.empty() ? static_cast<T>(0) : station_rain[rain_idx], model_meta_,
+                     scaled_global_param, factor);
+    }
+    results.push_back(FlowConfluenceMultiStep(state_param, scaled_global_param, factor));
+  }
+
+  T FlowConfluenceMultiStep(lms::raster::StateRaster<T>& state_param,
+                            const lms::core::GlobalParam<T>& scaled_global_param,
+                            const Factor<T>& factor) const {
     lms::core::StateParam<T> exit_sink;
 
     for (int i = 0; i < model_meta_.confluence_steps_; ++i) {
-      // std::printf("  Confluence step %d/%zu\n", i + 1, model_meta_.confluence_steps_);
-      // std::fflush(stdout);
-
       // Clear upstream_in_flow for all cells at the start of each confluence sub-timestep.
       for (int item : iter_order_) {
-        state_param_[item].upstream_in_flow = 0;
+        state_param[item].upstream_in_flow = 0;
       }
       exit_sink.upstream_in_flow = 0;
 
@@ -240,50 +231,40 @@ class Model {
         auto target_opt = target_idx_[idx];
 
         if (target_opt.has_value()) {
-          FlowConfluenceStepOnce(state_param_[item], const_param_[item], state_param_[*target_opt], static_cast<T>(0),
-                                 model_meta_, global_param_);
+          FlowConfluenceStepOnce(state_param[item], const_param_[item], state_param[*target_opt], static_cast<T>(0),
+                                 model_meta_, scaled_global_param, factor);
         } else {
           // Route the outlet cell to the exit_sink
-          FlowConfluenceStepOnce(state_param_[item], const_param_[item], exit_sink, static_cast<T>(0), model_meta_,
-                                 global_param_);
+          FlowConfluenceStepOnce(state_param[item], const_param_[item], exit_sink, static_cast<T>(0), model_meta_,
+                                 scaled_global_param, factor);
         }
       }
 
       // Clear runoff and lateral inflow after they have been routed in the first sub-timestep
       for (int item : iter_order_) {
-        state_param_[item].runoff = 0;
-        state_param_[item].lateral_in_flow_mm = 0;
+        state_param[item].runoff = 0;
+        state_param[item].lateral_in_flow_mm = 0;
       }
     }
 
     if (!iter_order_.empty()) {
-      return state_param_[iter_order_.back()].prev_t_flow;
+      return state_param[iter_order_.back()].prev_t_flow;
     }
     return 0;
   }
 
-  void ApplyFactor(lms::raster::ConstParam<T>& const_param, lms::factor::Factor<T>& factor_) {
-    const_param.sat *= factor_.sat;
-    const_param.fc *= factor_.fc;
-    const_param.wl *= factor_.wl;
-    const_param.ks *= factor_.ks;
-    const_param.zs *= factor_.zs;
-    const_param.b *= factor_.b;
-    const_param.n *= factor_.n;
-    const_param.v *= factor_.v;
-    const_param.bs *= factor_.bs;
-    const_param.bw *= factor_.bw;
-    const_param.ep *= factor_.ep;
-  }
-
-  void ApplyGlobalFactor(lms::core::GlobalParam<T>& global_param, lms::factor::Factor<T>& factor_) {
-    global_param.manning *= factor_.manning;
-    global_param.soil_alpha_ *= factor_.soil_alpha;
-    global_param.init_soil_water *= factor_.init_soil_water;
-    global_param.ss *= factor_.ss;
-  }
-
-  void CompressRaster() {};
+  lms::raster::StateRaster<T> state_param_;
+  lms::raster::ConstRaster<T> const_param_;
+  lms::core::ModelMeta<T> model_meta_;
+  lms::core::GlobalParam<T> global_param_;
+  std::vector<int> iter_order_;
+  std::vector<std::optional<int>> target_idx_;
+  std::vector<int> station_id_;
+  std::vector<std::vector<T>> rainfall_;
+  int rainfall_data_length_;
+  std::vector<Station<T>> stations_;
+  lms::flow::Flow<T> flow_;
+  std::function<T(const std::vector<T>&, const std::vector<T>&)> objective_func_;
 };
 
 }  // namespace model

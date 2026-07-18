@@ -51,7 +51,8 @@ struct ConstRaster {
   ConstRaster& operator=(ConstRaster&&) = default;
 
   ConstParam<T>& operator[](std::size_t idx) { return cells[idx]; }
-  size_t size() { return cells.size(); }
+  const ConstParam<T>& operator[](std::size_t idx) const { return cells[idx]; }
+  size_t size() const { return cells.size(); }
 };
 template <typename T>
 struct StateRaster {
@@ -71,8 +72,9 @@ struct StateRaster {
   StateRaster& operator=(StateRaster&&) = default;
 
   StateParam<T>& operator[](std::size_t idx) { return cells[idx]; }
+  const StateParam<T>& operator[](std::size_t idx) const { return cells[idx]; }
 
-  size_t size() { return cells.size(); }
+  size_t size() const { return cells.size(); }
 };
 
 // ---------------------------------------------------------------------------

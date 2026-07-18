@@ -14,7 +14,7 @@ endif()
 find_package(GDAL CONFIG REQUIRED)
 file(GLOB_RECURSE LMS_SOURCES "${CMAKE_SOURCE_DIR}/src/*.cpp")
 
-add_subdirectory("/home/jack-li/Desktop/starlings" "${CMAKE_CURRENT_BINARY_DIR}/starlings")
+add_subdirectory("/home/jack-li/Desktop/starlings" "${CMAKE_CURRENT_BINARY_DIR}/ex_opt")
 
 add_library(lms_engine_lib ${LMS_SOURCES})
 target_include_directories(lms_engine_lib PRIVATE ${CMAKE_SOURCE_DIR}/include)
@@ -23,7 +23,7 @@ target_link_libraries(lms_engine_lib PRIVATE GDAL::GDAL)
 add_executable(simulate_test test/simulate.cpp)
 
 target_include_directories(simulate_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(simulate_test PRIVATE GDAL::GDAL lms_engine_lib starlings)
+target_link_libraries(simulate_test PRIVATE GDAL::GDAL lms_engine_lib)
 add_executable(optimize_test test/optimize.cpp)
 target_include_directories(optimize_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(optimize_test PRIVATE GDAL::GDAL lms_engine_lib starlings)
+target_link_libraries(optimize_test PRIVATE GDAL::GDAL lms_engine_lib ex_opt)

@@ -19,9 +19,9 @@
 #include "builder/flow_builder.h"
 #include "builder/rain_builder.h"
 #include "builder/raster_builder.h"
+#include "ex_opt.h"
 #include "io/gdal_reader.h"
-#include "starlings.h"
-using T = double;
+using T = float;
 using lms::core::ConstParam;
 using lms::core::Label;
 using lms::factor::Factor;
@@ -72,8 +72,8 @@ int main(int argc, char** argv) {
     meta.heigh_ = cr.meta.heigh_;
     meta.cell_size_ = cr.meta.cell_size_;
     meta.time_interval_s_ = 3600;  // 1 hour
-    meta.confluence_steps_ = 6;
-    meta.runoff_dt_s_ = 600;
+    meta.confluence_steps_ = 1;
+    meta.runoff_dt_s_ = 3600;
     // Bounds for coordinate conversion (placeholder values)
     meta.raster_min_lat_ = 2580000.0;
     meta.raster_max_lat_ = 2610000.0;
@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
     global_param.v = 0.7;
     global_param.manning = 0.025;
     global_param.ss = 60.0;
-    global_param.init_soil_water = 0.3;
+    global_param.init_soil_water = 0.5;
 
     lms::model::Model<T> model(std::move(sr), std::move(cr), meta, global_param, std::move(order), std::move(targets),
                                std::move(rainfall_matrix), rain_builder.stations(), std::move(flow_data));
@@ -125,40 +125,24 @@ int main(int argc, char** argv) {
     std::printf("Starting simulation...\n");
     Factor<T> factor;
 
-    starlings::sa::SaSettings settings(15, 0.5, 1.5);
+    ex_opt::sa::SaSettings settings(15, 0.5, 1.5);
     settings.T_max = 1.0;
     settings.T_min = 1e-9;
     settings.L = 300;
     settings.max_stay_counter = 150;
     settings.print_every = 1;
-    auto best = starlings::minimize<LmsParamsMapper>(
-        settings, factor,
-        [&model](Factor<T> factor) {
-          auto factor_model = model.BuildWithFactor(factor);
-          auto results = factor_model.SimulateEval();
-          std::cout << "simulate once eval:" << results << std::endl;
-          return results;
-        },
+    auto best = ex_opt::optimize<LmsParamsMapper>(
+        settings, factor, [&model](Factor<T> factor) { return model.SimulateEval(factor); },
         /*num_actors=*/6);
 
-    model.SimulateAll();
+    auto results = model.Simulate(best);
     std::printf("Simulation completed.\n");
 
     // 5. Verify results (simple check)
-    const auto& results = model.GetResult();
     std::printf("Simulation Results (outlet flow at each time step):\n");
     for (std::size_t i = 0; i < results.size(); ++i) {
       std::printf("  Time step %zu: %g\n", i + 1, results[i] / 3600);
     }
-
-    auto& final_state = model.state_param();
-    double total_runoff = 0;
-    for (std::size_t i = 0; i < final_state.meta_.width_ * final_state.meta_.heigh_; ++i) {
-      if (final_state.active_[i]) {
-        total_runoff += final_state[i].runoff;
-      }
-    }
-    std::printf("Final Total Runoff (sum across all cells): %g\n", total_runoff);
 
     std::printf("== Full Model Construction End ==\n");
 

@@ -4,6 +4,7 @@
 #include "../utils.hpp"
 #include "base/core.h"
 #include "base/direct.h"
+#include "base/factor.h"
 
 using lms::core::ConstParam;
 using lms::core::GlobalParam;
@@ -20,30 +21,30 @@ T GetStepInFlow(StateParam<T>& state_param_loc, const ConstParam<T>& const_param
 
 template <typename T>
 void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_param_loc, StateParam<T>& target_state,
-                    T rainfall, const ModelMeta<T>& meta_data, const GlobalParam<T>& global_param) {
+                    T rainfall, const ModelMeta<T>& meta_data, const GlobalParam<T>& global_param, const lms::factor::Factor<T>& factor) {
   // calculate flow generate in soil cell
   if (const_param_loc.label == Label::Soil) {
-    auto sat = const_param_loc.sat;
-    auto fc = const_param_loc.fc;
+    auto sat = const_param_loc.sat * factor.sat;
+    auto fc = const_param_loc.fc * factor.fc;
     auto soil_moisture = state_param_loc.soil_moisture;
     auto slop = const_param_loc.slop;
-    auto ks = const_param_loc.ks * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
-    auto b = const_param_loc.b;
+    auto ks = const_param_loc.ks * factor.ks * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
+    auto b = const_param_loc.b * factor.b;
     auto k = GetK(soil_moisture, sat, b, ks);
-    auto zs = const_param_loc.zs;
+    auto zs = const_param_loc.zs * factor.zs;
     auto lateral_in_q = state_param_loc.lateral_in_flow_mm;
     auto direct_factor = GetDirectFactor<T>(const_param_loc.d8);
     // ep is stored as mm/h in raster; convert to mm/step (same as ks)
-    auto ep = const_param_loc.ep * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
-    auto v = const_param_loc.v;
+    auto ep = const_param_loc.ep * factor.ep * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
+    auto v = const_param_loc.v * factor.v;
     auto cell_size = static_cast<T>(meta_data.cell_size_);
     auto soil_alpha = global_param.soil_alpha_;
     // calculate evaporation
     if (soil_moisture > fc) {
       state_param_loc.actual_evaporate = ep * v;
-    } else if (soil_moisture > const_param_loc.wl) {
+    } else if (soil_moisture > const_param_loc.wl * factor.wl) {
       state_param_loc.actual_evaporate =
-          (1 - v) * ep * (soil_moisture - const_param_loc.wl) / (fc - const_param_loc.wl);
+          (1 - v) * ep * (soil_moisture - const_param_loc.wl * factor.wl) / (fc - const_param_loc.wl * factor.wl);
     } else {
       state_param_loc.actual_evaporate = 0;
     }
@@ -90,7 +91,7 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
 
   else {
     // Channel/Reservoir: evaporation at potential rate (matching Java Ea = Ep for non-Soil)
-    auto ep = const_param_loc.ep * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
+    auto ep = const_param_loc.ep * factor.ep * static_cast<T>(meta_data.time_interval_s_) / static_cast<T>(3600.0);
     state_param_loc.actual_evaporate = std::min(ep, rainfall);
     auto depth = rainfall - state_param_loc.actual_evaporate;
     if (depth > 0) {
@@ -101,7 +102,8 @@ void FlowGeneration(StateParam<T>& state_param_loc, const ConstParam<T>& const_p
 
 template void FlowGeneration<double>(StateParam<double>& state_param_loc, const ConstParam<double>& const_param_loc,
                                      StateParam<double>& target_state, double rainfall,
-                                     const ModelMeta<double>& meta_data, const GlobalParam<double>& global_param);
+                                     const ModelMeta<double>& meta_data, const GlobalParam<double>& global_param,
+                                     const lms::factor::Factor<double>& factor);
 template void FlowGeneration<float>(StateParam<float>& state_param_loc, const ConstParam<float>& const_param_loc,
                                     StateParam<float>& target_state, float rainfall, const ModelMeta<float>& meta_data,
-                                    const GlobalParam<float>& global_param);
+                                    const GlobalParam<float>& global_param, const lms::factor::Factor<float>& factor);
